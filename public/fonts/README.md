@@ -9,7 +9,7 @@
 3. 重新构建（`npm run build`）或开发时重启（`npm run dev`）即可——会自动扫描本文件夹、刷新字体下拉。
    也可单独运行 `npm run scan-fonts` 只刷新清单。
 
-> 内置字体（Oswald、Bebas Neue、Montserrat、站酷快乐体）不在本文件夹，已随程序打包，开箱即用。
+> 内置字体（方正风雅宋、优设标题圆、钉钉进步体、抖音美好体、Cormorant Garamond、Melete 五字重）不在本文件夹，已随程序打包，开箱即用。
 > 请只放你有权使用的字体；版权由放置者负责。
 
 `manifest.json` 是自动生成的清单，不用手动编辑。

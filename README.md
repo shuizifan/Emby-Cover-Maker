@@ -2,10 +2,10 @@
 
 > 为 Emby 等媒体库生成横幅动态封面 GIF 的纯前端工具。上传电影海报 → 调背景 / 文字 / 布局 / 动画 → 实时预览 → 导出 GIF。
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/YOUR_REPO)
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/YOUR_USERNAME/YOUR_REPO)
-
-> 把上面两个按钮里的 `YOUR_USERNAME/YOUR_REPO` 换成你的实际仓库地址即可使用。GitHub Pages 走仓库内置的 Actions 工作流自动部署（见下文）。
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/shuizifan/Emby-Cover-Maker)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/shuizifan/Emby-Cover-Maker)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/shuizifan/Emby-Cover-Maker)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/shuizifan/Emby-Cover-Maker)
 
 一个**单人离线**的小工具：没有后端、没有云、没有账号，所有处理都在浏览器本地完成。技术栈为 Vite + React + TypeScript + Canvas 2D，GIF 编码使用 gif.js（运行在 Web Worker，Floyd–Steinberg 抖色）。当前实现「海报斜播」一个视觉主题，架构上为扩展更多主题预留了接口。
 
@@ -30,39 +30,56 @@
 
 ## 快速开始
 
+### Windows 本地运行（推荐）
+
+双击根目录的 **`启动运行.bat`** 即可一键安装依赖并启动。
+
+- 若 PowerShell 提示脚本被禁止，请改用 cmd（右键 → 用命令提示符运行）。
+- 首次运行会自动执行 `npm install`，之后直接启动。
+
+### 命令行启动
+
 需要 **Node.js 18+**。
 
 ```bash
-npm install      # 安装依赖
-npm run dev      # 启动本地开发预览
+npm install      # 安装依赖（首次）
+npm run dev      # 启动本地开发服务器
 ```
 
-打开终端提示的本地地址即可使用。Windows 用户也可双击根目录的 `启动运行.bat` 一键安装并启动（PowerShell 若提示脚本被禁用，请改用 cmd）。
+打开终端提示的本地地址（默认 `http://localhost:5173`）即可使用。
 
 ## 构建
 
 ```bash
 npm run build    # 扫描字体 + 类型检查 + 打包到 dist/
-npm run preview  # 本地预览打包结果
+npm run preview  # 本地预览打包结果（需先构建）
 ```
 
 构建产物在 `dist/`，是纯静态文件，可部署到任意静态托管。
 
-> 注意：必须通过 HTTP(S) 访问；浏览器的本地文件安全策略会导致**直接双击 `dist/index.html` 无法正常打开**。
+> 注意：必须通过 HTTP(S) 访问；浏览器的本地文件安全策略会导致**直接双击 `dist/index.html` 无法正常使用**。
 
 ## 部署
 
-项目是纯静态 SPA，已为以下三个平台预置好配置，开箱即可一键部署。
+项目是纯静态 SPA，已为以下平台预置好配置，开箱即可一键部署。
 
-### Vercel
+### Vercel（推荐）
 
-点击页首的 **Deploy with Vercel** 按钮，把仓库 clone 到你的账号并自动部署。Vercel 会识别 Vite 框架，无需额外配置（构建命令 `npm run build`，输出目录 `dist`）。
+点击页首的 **Deploy with Vercel** 按钮，把仓库 fork 到你的账号并自动部署。Vercel 会自动识别 Vite 框架，无需额外配置（构建命令 `npm run build`，输出目录 `dist`）。
 
-### Cloudflare
+### Netlify
+
+点击页首的 **Deploy to Netlify** 按钮。根目录的 [`netlify.toml`](netlify.toml) 已配置构建命令和 SPA 重定向规则，一键即用。
+
+### Cloudflare Workers
 
 点击页首的 **Deploy to Cloudflare** 按钮。根目录的 [`wrangler.jsonc`](wrangler.jsonc) 已把 `dist/` 配置为 Workers 静态资源，Cloudflare 会自动构建并以 Workers Static Assets 方式托管。
 
 > Cloudflare 的一键按钮要求仓库为**公开**仓库。
+
+### Render
+
+点击页首的 **Deploy to Render** 按钮。根目录的 [`render.yaml`](render.yaml) 已配置为静态站点服务，自动构建并托管。Render 免费计划足够个人使用。
 
 ### GitHub Pages
 
@@ -72,6 +89,40 @@ npm run preview  # 本地预览打包结果
 2. 推送一次到 `main`（或在 Actions 页手动触发工作流），稍等即可在生成的 Pages 地址访问。
 
 `vite.config.ts` 中 `base: './'` 用的是相对路径，因此无论部署在根域名还是 `user.github.io/<repo>/` 子路径下都能正常加载资源。
+
+### 宝塔面板
+
+适合已有 VPS 并安装了宝塔面板的用户，可直接托管构建产物。
+
+**方法一：本地构建后上传（推荐）**
+
+1. 本地执行 `npm run build`，生成 `dist/` 文件夹。
+2. 在宝塔面板新建一个静态网站，域名随意（如 `cover.yourdomain.com`）。
+3. 把 `dist/` 里的全部文件上传到该网站的根目录（通常是 `/www/wwwroot/你的站点/`）。
+4. 在网站设置中开启 **SSL**（Let's Encrypt 免费证书），浏览器访问即可。
+
+**方法二：服务器上直接构建**
+
+1. 在宝塔面板安装 **Node.js 版本管理器**，选择 Node.js 18 或 20。
+2. 把本仓库克隆到服务器（或通过宝塔文件管理器上传压缩包解压）。
+3. 在终端进入项目目录，执行：
+   ```bash
+   npm install
+   npm run build
+   ```
+4. 新建一个静态网站，网站根目录指向项目的 `dist/` 文件夹即可。
+
+**Nginx SPA 重定向配置**
+
+宝塔面板默认的 Nginx 配置不支持 SPA 路由。请在网站的 **Nginx 配置** 中，在 `location /` 块内加入以下规则（若文件不存在则回退到 `index.html`）：
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+> 本工具是纯前端 SPA，无需数据库或任何后端环境，宝塔面板只需提供静态文件服务即可。
 
 ## 自定义字体
 
@@ -89,9 +140,12 @@ npm run scan-fonts   # 扫描 public/fonts 并刷新字体清单
 .
 ├── index.html              入口 HTML
 ├── package.json            依赖与脚本
-├── vite.config.ts          Vite 配置（base 相对路径）
+├── vite.config.ts          Vite 配置（base 相对路径，兼容各平台部署）
 ├── tsconfig.json           TypeScript 配置
-├── wrangler.jsonc          Cloudflare Workers 静态资源部署配置
+├── wrangler.jsonc          Cloudflare Workers 部署配置
+├── netlify.toml            Netlify 部署配置（构建 + SPA 重定向）
+├── render.yaml             Render 部署配置（静态站点）
+├── 启动运行.bat             Windows 一键启动脚本
 ├── .github/workflows/      GitHub Pages 自动部署工作流
 ├── scripts/                scan-fonts（扫描字体）/ verify（算法不变量校验）
 ├── public/fonts/           用户自定义字体目录 + 自动生成的 manifest.json
