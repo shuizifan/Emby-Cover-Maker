@@ -2,10 +2,12 @@
 
 > 为 Emby 等媒体库生成横幅动态封面 GIF 的纯前端工具。上传电影海报 → 调背景 / 文字 / 布局 / 动画 → 实时预览 → 导出 GIF。
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/shuizifan/Emby-Cover-Maker)
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/shuizifan/Emby-Cover-Maker)
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/shuizifan/Emby-Cover-Maker)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/shuizifan/Emby-Cover-Maker)
+**一键部署：**
+[![Deploy with Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/new/clone?repository-url=https://github.com/shuizifan/Emby-Cover-Maker)
+[![Deploy to Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://deploy.workers.cloudflare.com/?url=https://github.com/shuizifan/Emby-Cover-Maker)
+[![Deploy to Netlify](https://img.shields.io/badge/Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://app.netlify.com/start/deploy?repository=https://github.com/shuizifan/Emby-Cover-Maker)
+[![Deploy to Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/deploy?repo=https://github.com/shuizifan/Emby-Cover-Maker)
+[![Deploy to GitHub Pages](https://img.shields.io/badge/GitHub_Pages-222222?style=for-the-badge&logo=github&logoColor=white)](https://github.com/shuizifan/Emby-Cover-Maker#github-pages)
 
 一个**单人离线**的小工具：没有后端、没有云、没有账号，所有处理都在浏览器本地完成。技术栈为 Vite + React + TypeScript + Canvas 2D，GIF 编码使用 gif.js（运行在 Web Worker，Floyd–Steinberg 抖色）。当前实现「海报斜播」一个视觉主题，架构上为扩展更多主题预留了接口。
 
