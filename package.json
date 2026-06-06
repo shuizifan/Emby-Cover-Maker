@@ -1,0 +1,33 @@
+{
+  "name": "emby-cover-maker",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Emby Cover Maker — 媒体库横幅动态封面 GIF 生成工具，主题：海报斜播",
+  "scripts": {
+    "dev": "npm run scan-fonts && vite",
+    "build": "npm run scan-fonts && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "scan-fonts": "tsx scripts/scan-fonts.mts",
+    "verify": "tsx scripts/verify.mts"
+  },
+  "dependencies": {
+    "gif.js": "^0.2.0",
+    "react": "^18.3.1",
+    "react-colorful": "^5.7.0",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^0.1.65",
+    "@types/gif.js": "^0.2.5",
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

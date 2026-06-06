@@ -1,0 +1,11 @@
+{
+  // Cloudflare Workers 静态资源部署配置（Workers Static Assets）。
+  // 这是一个纯静态站点：构建产物在 dist/，由 Workers 直接托管，无需服务端代码。
+  "name": "emby-cover-maker",
+  "compatibility_date": "2026-06-06",
+  "assets": {
+    "directory": "./dist",
+    // 单页应用：未命中静态文件时回退到 index.html
+    "not_found_handling": "single-page-application"
+  }
+}

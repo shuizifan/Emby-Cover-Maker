@@ -1,0 +1,26 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+dist2/
+dist-ssr/
+*.local
+
+# 校验 / 临时输出
+_verify_out/
+
+# 发行打包产物（带时间戳）
+*-internet-release-*/
+*.zip
+
+# 编辑器 / 系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+npm-debug.log*
