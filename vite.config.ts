@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// 单人离线工具：无后端、无云。base 用相对路径，方便直接双击 dist/index.html 打开。
+// base 用相对路径，兼容 GitHub Pages 子路径部署（user.github.io/<repo>/）及各静态托管平台。
 export default defineConfig({
   base: './',
   plugins: [react()],
