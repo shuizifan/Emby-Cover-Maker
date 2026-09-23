@@ -2,10 +2,10 @@
 //  Tab：导出（手册 §6.2 / §9 输出契约）
 //  抖色算法 / 质量 / 导出按钮（状态/进度）。
 // ============================================================
-import { useStore } from '../../store/useStore';
+import { selectFillState, useStore } from '../../store/useStore';
 import type { DitherMode, ExportScale } from '../../types';
 import { frameCount } from '../../export/frameMath';
-import { GroupTitle, HelpText, Segmented, Slider } from '../controls';
+import { GroupTitle, HelpText, Segmented, Slider, Toggle } from '../controls';
 
 const DITHER_OPTIONS: { value: DitherMode; label: string }[] = [
   { value: 'FloydSteinberg', label: 'Floyd-Steinberg（默认，最佳）' },
@@ -18,6 +18,7 @@ export function ExportPanel() {
   const dither = useStore((s) => s.dither);
   const quality = useStore((s) => s.quality);
   const exportScale = useStore((s) => s.exportScale);
+  const globalPalette = useStore((s) => s.globalPalette);
   const width = useStore((s) => s.width);
   const height = useStore((s) => s.height);
   const duration = useStore((s) => s.duration);
@@ -34,16 +35,7 @@ export function ExportPanel() {
     24,
     Math.round((width * height * frames * (0.18 + (21 - quality) * 0.018) * (dither === 'false' ? 0.82 : 1)) / 1024),
   );
-  const isComplete = useStore((s) => {
-    let total = 0;
-    let filled = 0;
-    for (let c = 0; c < s.cols; c++) {
-      const arr = s.postersByCol[c] ?? [];
-      total += s.columns[c]?.count ?? 0;
-      for (const p of arr) if (p) filled++;
-    }
-    return total > 0 && filled === total;
-  });
+  const isComplete = useStore((s) => selectFillState(s).complete);
 
   return (
     <div className="panel">
@@ -85,6 +77,11 @@ export function ExportPanel() {
           <GroupTitle>质量</GroupTitle>
           <Slider label="质量值" value={quality} min={1} max={20} onChange={(v) => setField('quality', v)} />
           <HelpText>数值越小质量越高、编码越慢（gif.js 量化采样间隔）。默认 8。</HelpText>
+
+          <Toggle label="统一调色板" checked={globalPalette} onChange={(v) => setField('globalPalette', v)} />
+          <HelpText>
+            所有帧共用第 1 帧的调色板：渐变背景不再帧间闪色、体积更小、编码更快；但第 1 帧里没露面的海报颜色可能偏差。默认关闭。
+          </HelpText>
 
           <div className="readonly-row">
             <span>体积预估</span>

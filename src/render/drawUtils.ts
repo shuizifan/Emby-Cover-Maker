@@ -85,15 +85,39 @@ export function drawImageCover(
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
-/** #rrggbb → "r, g, b"（用于 rgba()） */
-export function hexToRgb(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `${r}, ${g}, ${b}`;
+type SpacingCtx = Ctx & { letterSpacing?: string };
+
+/**
+ * 是否支持原生 ctx.letterSpacing（Chrome 99+ / Firefox 115+ / Safari 17+ / @napi-rs/canvas）。
+ * 原生字间距保留拉丁字体的字距调整与连字；逐字 fillText 会把它们丢掉。
+ */
+function hasNativeSpacing(ctx: Ctx): boolean {
+  return typeof (ctx as SpacingCtx).letterSpacing === 'string';
 }
 
-/** 带字间距绘制文本 */
+function withSpacing<T>(ctx: Ctx, spacing: number, fn: () => T): T {
+  const c = ctx as SpacingCtx;
+  const prev = c.letterSpacing as string;
+  c.letterSpacing = `${spacing}px`;
+  try {
+    return fn();
+  } finally {
+    c.letterSpacing = prev;
+  }
+}
+
+/** 原生字间距是否在末字后也加一份（按运行环境检测一次），用于把宽度口径对齐到「字与字之间」 */
+let nativeTrailing: boolean | null = null;
+function spacingIncludesTrailing(ctx: Ctx): boolean {
+  if (nativeTrailing === null) {
+    const a = withSpacing(ctx, 0, () => ctx.measureText('x').width);
+    const b = withSpacing(ctx, 10, () => ctx.measureText('x').width);
+    nativeTrailing = b - a > 5;
+  }
+  return nativeTrailing;
+}
+
+/** 带字间距绘制文本（优先原生 letterSpacing，不支持时逐字绘制） */
 export function drawTextLetterSpaced(
   ctx: Ctx,
   text: string,
@@ -105,6 +129,10 @@ export function drawTextLetterSpaced(
     ctx.fillText(text, x, y);
     return;
   }
+  if (hasNativeSpacing(ctx)) {
+    withSpacing(ctx, spacing, () => ctx.fillText(text, x, y));
+    return;
+  }
   let cx = x;
   for (const ch of text) {
     ctx.fillText(ch, cx, y);
@@ -112,9 +140,13 @@ export function drawTextLetterSpaced(
   }
 }
 
-/** 测量带字间距文本的总宽 */
+/** 测量带字间距文本的总宽（末字后不计字间距） */
 export function measureTextLetterSpaced(ctx: Ctx, text: string, spacing: number): number {
   if (!spacing) return ctx.measureText(text).width;
+  if (hasNativeSpacing(ctx)) {
+    const w = withSpacing(ctx, spacing, () => ctx.measureText(text).width);
+    return text && spacingIncludesTrailing(ctx) ? w - spacing : w;
+  }
   let w = 0;
   for (const ch of text) w += ctx.measureText(ch).width + spacing;
   return w - spacing;

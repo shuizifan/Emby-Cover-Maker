@@ -25,9 +25,11 @@ const HIT_PAD = 6;
 
 const CN_LH = 1.22;
 const EN_LH = 1.3;
-/** 英文标题相对默认间距再上移的基准量（让中英标题更紧凑；
- *  令 en.offsetY=0 对应此前需要手动设 -13px 的位置，中文位置不变） */
-const EN_BASELINE_LIFT = 13;
+/** 英文标题相对默认间距再上移的量 = 中文字号 × 此比例（让中英标题更紧凑；
+ *  默认中文 40px 时为 13px。随中文字号缩放，中文字号小时不会压到中文） */
+const EN_LIFT_RATIO = 13 / 40;
+/** 排版缓存上限：文本、字体、字号、间距不变时跳过换行与测量 */
+const LAYOUT_CACHE_MAX = 32;
 
 export interface TitleBox {
   x: number;
@@ -47,15 +49,31 @@ interface Laid {
   trackPx: number;
 }
 
+const layoutCache = new Map<string, Laid>();
+
+/** 字体加载完成后调用：字形度量变了，排版缓存作废 */
+export function notifyFontsChanged(): void {
+  layoutCache.clear();
+}
+
 function layoutTitle(ctx: Ctx, t: RenderTitle, lhFactor: number): Laid {
-  ctx.font = `${t.weight} ${t.size}px ${t.family}`;
+  const font = `${t.weight} ${t.size}px ${t.family}`;
   const trackPx = (t.trackPct / 100) * t.size;
   const text = t.upper ? t.text.toUpperCase() : t.text;
+  const key = [font, text, trackPx, t.wrap ? t.wrapWidth : -1, lhFactor].join('\u0000');
+  const cached = layoutCache.get(key);
+  if (cached) return cached;
+
+  ctx.font = font;
   const lines = t.wrap ? wrapTextLines(ctx, text, Math.max(8, t.wrapWidth), trackPx) : [text];
   let maxW = 0;
   for (const ln of lines) maxW = Math.max(maxW, measureTextLetterSpaced(ctx, ln, trackPx));
   const lineH = t.size * lhFactor;
-  return { lines, maxW, lineH, blockH: lines.length * lineH, trackPx };
+  const laid: Laid = { lines, maxW, lineH, blockH: lines.length * lineH, trackPx };
+
+  if (layoutCache.size >= LAYOUT_CACHE_MAX) layoutCache.delete(layoutCache.keys().next().value as string);
+  layoutCache.set(key, laid);
+  return laid;
 }
 
 function drawTitle(
@@ -119,7 +137,8 @@ export function drawTextOverlay(ctx: Ctx, s: RenderState): void {
   // ---- 英文标题（竖条做左对齐锚点；英文文字缩进到竖条右侧） ----
   if (enLaid) {
     const enX = ANCHOR_X + enIndent + s.en.offsetX;
-    const enTop = groupTop + cnBlockH + between - EN_BASELINE_LIFT + s.en.offsetY;
+    const lift = hasCN ? s.cn.size * EN_LIFT_RATIO : 0;
+    const enTop = groupTop + cnBlockH + between - lift + s.en.offsetY;
 
     // 装饰：左竖条（高度 = 英文块，含换行；左边缘 = 锚点 = 中文左对齐）
     if (barOn) {

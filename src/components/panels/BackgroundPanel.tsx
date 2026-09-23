@@ -2,38 +2,16 @@
 //  Tab：背景
 //  单一入口：模式 + 色相/明暗层次 + 色系预设 + 角度盘 + 折叠自定义。
 // ============================================================
-import { useMemo, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useStore } from '../../store/useStore';
-import type { FillValue, LookPreset } from '../../types';
-import { normalizeHex, hexToRgbObj, rgbObjToHex, rgbToHsl, hslToRgb } from '../../utils/color';
-import { fileToImage } from '../../utils/imageLoad';
+import type { BgMood, BgPickerMode, BgPickerState, GradKind } from '../../types';
+import { normalizeHex, hexToRgbObj, rgbObjToHex, rgbToHsl } from '../../utils/color';
+import { MOOD, colorsFor, hslToHex, lightnessPair } from '../../utils/bgPicker';
+import { fileToBackground } from '../../utils/imageLoad';
 import { fillToCss } from '../../render/fill';
 import { AngleDial } from '../AngleDial';
 import { ColorPopover } from '../ColorPopover';
 import { Collapsible, GroupTitle, HelpText, SectionHead, Segmented, Toggle } from '../controls';
-
-type PickerMode = 'single' | 'dual' | 'solid' | 'image';
-type Mood = 'soft' | 'standard' | 'rich';
-type GradientKind = 'linear' | 'radial';
-
-interface PickerState {
-  mode: PickerMode;
-  hue1: number;
-  hue2: number;
-  mood: Mood;
-  lightnessSpan: number;
-  gradType: GradientKind;
-  angle: number;
-  customStart: string;
-  customEnd: string;
-  smartCorrection: boolean;
-}
-
-const MOOD: Record<Mood, { sd: number; sl: number }> = {
-  soft: { sd: 30, sl: 55 },
-  standard: { sd: 46, sl: 73 },
-  rich: { sd: 60, sl: 85 },
-};
 
 const PRESETS = [
   { hue: 10, name: '日落珊瑚' },
@@ -45,36 +23,9 @@ const PRESETS = [
   { hue: 325, name: '玫瑰粉' },
 ];
 
-const DEFAULT_PICKER: PickerState = {
-  mode: 'single',
-  hue1: 217,
-  hue2: 217,
-  mood: 'standard',
-  lightnessSpan: 43,
-  gradType: 'linear',
-  angle: 90,
-  customStart: '',
-  customEnd: '',
-  smartCorrection: true,
-};
-
-const LIGHTNESS_CENTER = 48.5;
-
-function hslToHex(h: number, s: number, l: number): string {
-  return rgbObjToHex(hslToRgb({ h, s: s / 100, l: l / 100 }));
-}
-
 function hueGap(h1: number, h2: number): number {
   const d = Math.abs(h1 - h2);
   return d > 180 ? 360 - d : d;
-}
-
-function lightnessPair(span: number): { dark: number; light: number } {
-  const safeSpan = Math.max(10, Math.min(75, span));
-  return {
-    dark: Math.max(12, LIGHTNESS_CENTER - safeSpan / 2),
-    light: Math.min(88, LIGHTNESS_CENTER + safeSpan / 2),
-  };
 }
 
 function lightnessStatus(span: number): { kind: 'weak' | 'safe' | 'strong' | 'danger'; text: string } {
@@ -84,38 +35,7 @@ function lightnessStatus(span: number): { kind: 'weak' | 'safe' | 'strong' | 'da
   return { kind: 'danger', text: '危险范围，渐变容易突兀' };
 }
 
-function colorsFor(state: PickerState): { start: string; end: string | null } {
-  const customStart = normalizeHex(state.customStart);
-  const customEnd = normalizeHex(state.customEnd);
-  const m = MOOD[state.mood];
-  const l = lightnessPair(state.lightnessSpan);
-
-  if (state.mode === 'solid') {
-    if (customStart) return { start: customStart, end: null };
-    return { start: hslToHex(state.hue1, m.sl, LIGHTNESS_CENTER), end: null };
-  }
-
-  if (customStart && customEnd) return { start: customStart, end: customEnd };
-  const endHue = state.mode === 'dual' ? state.hue2 : state.hue1;
-  return {
-    start: hslToHex(state.hue1, m.sd, l.dark),
-    end: hslToHex(endHue, m.sl, l.light),
-  };
-}
-
-function fillFor(state: PickerState): FillValue {
-  const { start, end } = colorsFor(state);
-  return {
-    mode: state.mode === 'solid' ? 'solid' : 'gradient',
-    gradType: state.gradType,
-    c1: start,
-    c2: end ?? start,
-    angle: state.angle,
-    endPos: 100,
-  };
-}
-
-function presetCss(hue: number, state: PickerState): string {
+function presetCss(hue: number, state: BgPickerState): string {
   const m = MOOD[state.mood];
   const l = lightnessPair(state.lightnessSpan);
   const a = hslToHex(hue, m.sd, l.dark);
@@ -123,7 +43,7 @@ function presetCss(hue: number, state: PickerState): string {
   return `linear-gradient(180deg, ${a}, ${b})`;
 }
 
-function warningsForCustom(state: PickerState): string[] {
+function warningsForCustom(state: BgPickerState): string[] {
   if (!state.smartCorrection || !state.customStart || !state.customEnd || state.mode === 'solid') return [];
   const start = normalizeHex(state.customStart);
   const end = normalizeHex(state.customEnd);
@@ -142,7 +62,7 @@ function warningsForCustom(state: PickerState): string[] {
   return warnings;
 }
 
-function warningForDual(state: PickerState): string {
+function warningForDual(state: BgPickerState): string {
   if (state.mode !== 'dual') return '';
   const { start, end } = colorsFor(state);
   if (!end) return '';
@@ -207,8 +127,9 @@ function LightnessSlider(props: { value: number; onChange: (v: number) => void }
 
 export function BackgroundPanel() {
   const hasBgImage = useStore((s) => s.bgImage != null);
-  const setField = useStore((s) => s.setField);
-  const setBgFill = useStore((s) => s.setBgFill);
+  const picker = useStore((s) => s.bgPicker);
+  const bgFill = useStore((s) => s.bgFill);
+  const setBgPicker = useStore((s) => s.setBgPicker);
   const setBgImage = useStore((s) => s.setBgImage);
   const getLook = useStore((s) => s.getLook);
   const applyLook = useStore((s) => s.applyLook);
@@ -216,30 +137,28 @@ export function BackgroundPanel() {
 
   const imgRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
-  const [picker, setPicker] = useState<PickerState>(DEFAULT_PICKER);
 
-  const fill = useMemo(() => fillFor(picker), [picker]);
-  const cssText = picker.mode === 'image' ? '/* 图片背景 */' : fillToCss(fill);
+  // 预览与 CSS 读数用画布实际的 bgFill，而不是按面板公式重算
+  const cssText = picker.mode === 'image' ? '/* 图片背景 */' : fillToCss(bgFill);
   const dualWarning = warningForDual(picker);
   const customWarnings = warningsForCustom(picker);
   const currentColors = colorsFor(picker);
 
-  const commit = (next: PickerState) => {
-    setPicker(next);
-    setField('bgImageOn', next.mode === 'image');
-    if (next.mode !== 'image') setBgFill(fillFor(next));
-  };
-
-  const patchPicker = (patch: Partial<PickerState>) => commit({ ...picker, ...patch });
+  const patchPicker = (patch: Partial<BgPickerState>) => setBgPicker({ ...useStore.getState().bgPicker, ...patch });
 
   const onPickPreset = (hue: number) => {
     patchPicker({ hue1: hue, hue2: hue, customStart: '', customEnd: '' });
   };
 
   const onPickImage = async (file: File | undefined) => {
+    if (imgRef.current) imgRef.current.value = '';
     if (!file) return;
-    setBgImage(await fileToImage(file));
-    patchPicker({ mode: 'image' });
+    try {
+      setBgImage(await fileToBackground(file));
+      patchPicker({ mode: 'image' });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '背景图片加载失败');
+    }
   };
 
   const onExport = () => {
@@ -253,14 +172,13 @@ export function BackgroundPanel() {
   };
 
   const onImport = async (file: File | undefined) => {
+    if (importRef.current) importRef.current.value = '';
     if (!file) return;
     try {
-      const preset = JSON.parse(await file.text()) as Partial<LookPreset>;
-      applyLook(preset);
-    } catch {
-      alert('外观文件解析失败');
+      applyLook(JSON.parse(await file.text()));
+    } catch (err) {
+      alert(`外观文件导入失败：${err instanceof SyntaxError ? '不是有效的 JSON' : err instanceof Error ? err.message : String(err)}`);
     }
-    if (importRef.current) importRef.current.value = '';
   };
 
   return (
@@ -279,7 +197,7 @@ export function BackgroundPanel() {
       <input ref={importRef} type="file" accept="application/json" hidden onChange={(e) => onImport(e.target.files?.[0])} />
 
       <GroupTitle>背景模式</GroupTitle>
-      <Segmented<PickerMode>
+      <Segmented<BgPickerMode>
         value={picker.mode}
         onChange={(mode) => patchPicker({ mode })}
         options={[
@@ -322,7 +240,7 @@ export function BackgroundPanel() {
           {pro && (
             <>
               <GroupTitle>调子</GroupTitle>
-              <Segmented<Mood>
+              <Segmented<BgMood>
                 value={picker.mood}
                 onChange={(mood) => patchPicker({ mood })}
                 options={[
@@ -350,7 +268,7 @@ export function BackgroundPanel() {
           {pro && picker.mode !== 'solid' && (
             <>
               <GroupTitle>渐变方向</GroupTitle>
-              <Segmented<GradientKind>
+              <Segmented<GradKind>
                 value={picker.gradType}
                 onChange={(gradType) => patchPicker({ gradType })}
                 options={[

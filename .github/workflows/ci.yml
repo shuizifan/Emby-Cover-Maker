@@ -1,0 +1,46 @@
+name: CI
+
+# PR 与 main 推送时跑全部检查；部署仍由 deploy.yml 负责
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify（算法不变量 + 像素断言）
+        run: npm run verify
+
+      - name: Build
+        run: npm run build
+
+      - name: Font manifest is committed
+        run: git diff --exit-code public/fonts/manifest.json

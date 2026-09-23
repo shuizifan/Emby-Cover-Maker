@@ -133,6 +133,57 @@ export function HelpText({ children }: { children: ReactNode }) {
   return <div className="help-text">{children}</div>;
 }
 
+/**
+ * 数字输入框：输入过程中持有本地草稿，可以清空重输、先打负号；
+ * 草稿是范围内的合法数字时实时生效，失焦或回车时再按 normalize 收敛提交，Esc 放弃。
+ */
+export function NumberField(props: {
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  className?: string;
+  onChange: (v: number) => void;
+  /** 提交前的收敛规则，默认按 [min, max] 夹取 */
+  normalize?: (v: number) => number;
+}) {
+  const { value, min, max, step = 1, className, onChange } = props;
+  const normalize = props.normalize ?? ((v: number) => Math.max(min, Math.min(max, v)));
+  const [draft, setDraft] = useState<string | null>(null);
+  const parse = (text: string): number | null => {
+    if (text.trim() === '') return null;
+    const n = Number(text);
+    return Number.isFinite(n) ? n : null;
+  };
+  const commit = () => {
+    if (draft === null) return;
+    const n = parse(draft);
+    if (n !== null) onChange(normalize(n));
+    setDraft(null);
+  };
+  return (
+    <input
+      type="number"
+      className={className}
+      value={draft ?? String(value)}
+      min={min}
+      max={max}
+      step={step}
+      onChange={(e) => {
+        const text = e.target.value;
+        setDraft(text);
+        const n = parse(text);
+        if (n !== null && n >= min && n <= max) onChange(normalize(n));
+      }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') commit();
+        else if (e.key === 'Escape') setDraft(null);
+      }}
+    />
+  );
+}
+
 /** 滑块 + 可输入数字（PS 风格）：用于字间距百分比这类既要拖也要精确输入的值 */
 export function SliderNum(props: {
   label: string;
@@ -144,7 +195,6 @@ export function SliderNum(props: {
   suffix?: string;
 }) {
   const { label, value, min, max, step = 1, onChange, suffix } = props;
-  const clamp = (v: number) => Math.max(min, Math.min(max, v));
   return (
     <div className="field-row">
       <span className="field-label">{label}</span>
@@ -157,18 +207,7 @@ export function SliderNum(props: {
         onChange={(e) => onChange(Number(e.target.value))}
       />
       <span className="num-box">
-        <input
-          type="number"
-          className="num-input"
-          value={value}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => {
-            const n = Number(e.target.value);
-            if (!Number.isNaN(n)) onChange(clamp(n));
-          }}
-        />
+        <NumberField className="num-input" value={value} min={min} max={max} step={step} onChange={onChange} />
         {suffix ? <em>{suffix}</em> : null}
       </span>
     </div>

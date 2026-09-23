@@ -1,3 +1,5 @@
+import { NumberField } from './controls';
+
 interface AngleDialProps {
   angle: number;
   label: string;
@@ -52,18 +54,7 @@ export function AngleDial({ angle, label, onChange }: AngleDialProps) {
       <div className="angle-value">
         <span>{label}</span>
         <span className="angle-input-wrap">
-          <input
-            className="angle-input"
-            type="number"
-            min={0}
-            max={359}
-            step={1}
-            value={angle}
-            onChange={(e) => {
-              const next = Number(e.target.value);
-              if (!Number.isNaN(next)) onChange(normalizeAngle(next));
-            }}
-          />
+          <NumberField className="angle-input" value={angle} min={0} max={359} normalize={normalizeAngle} onChange={onChange} />
           <em>°</em>
         </span>
       </div>

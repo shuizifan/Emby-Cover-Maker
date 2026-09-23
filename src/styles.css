@@ -202,12 +202,7 @@ body {
 .collapsible.open .collapsible-header .chev { transform: rotate(180deg); }
 .collapsible-body { padding: 8px 13px 13px; border-top: 1px solid var(--border); }
 
-/* ---------- 背景 swatches ---------- */
-.swatch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.bg-swatch { position: relative; height: 50px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; overflow: hidden; transition: transform .15s, box-shadow .15s; }
-.bg-swatch:hover { transform: translateY(-2px); }
-.bg-swatch.is-active { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); }
-.bg-swatch span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 11px; font-weight: 500; color: #fff; text-align: center; padding: 3px 0; background: linear-gradient(0deg, rgba(0,0,0,.55), transparent); }
+/* ---------- 背景 ---------- */
 .inline-upload { margin-top: 8px; }
 
 /* ---------- 背景渐变选择器 ---------- */
@@ -269,28 +264,6 @@ body {
 }
 .hue-preset:hover { transform: translateY(-2px); }
 .hue-preset.is-active { box-shadow: 0 0 0 2px var(--accent); border-color: transparent; }
-.direction-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
-.direction-btn {
-  min-height: 32px; border: 1px solid var(--border-strong); border-radius: 7px;
-  background: transparent; color: var(--text-dim); font: inherit; font-size: 11.5px;
-  cursor: pointer; transition: border-color .15s, color .15s, background .15s;
-}
-.direction-btn:hover { color: var(--text); border-color: var(--accent); }
-.direction-btn.is-active { background: var(--accent); color: var(--on-accent); border-color: transparent; }
-.bg-mid-display { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 8px 0 4px; }
-.bg-mid-cell {
-  background: var(--surface-2); border: 1px solid var(--border);
-  border-radius: 8px; padding: 7px; min-width: 0;
-}
-.bg-mid-cell span { display: block; font-size: 10.5px; color: var(--text-faint); margin-bottom: 5px; }
-.bg-mid-cell i {
-  display: block; height: 24px; border-radius: 5px; border: 1px solid var(--border-strong);
-  margin-bottom: 5px;
-}
-.bg-mid-cell b {
-  display: block; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px;
-  color: var(--text-dim); font-weight: 400; overflow: hidden; text-overflow: ellipsis;
-}
 .mono-input { font-family: ui-monospace, Menlo, monospace; }
 .angle-row { display: flex; align-items: center; gap: 14px; margin: 12px 0 2px; }
 .angle-dial {
@@ -347,24 +320,7 @@ body {
 }
 .text-color-preset:hover { transform: translateY(-1px); border-color: var(--accent); }
 
-/* ---------- 调色工具 FillEditor ---------- */
-.fill-editor { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-.fill-stops { display: flex; gap: 8px; }
-.stop-chip { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-size: 12px; color: var(--text-dim); background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 7px; padding: 7px; cursor: pointer; }
-.stop-chip.is-active { border-color: var(--accent); color: var(--text); }
-.stop-dot { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-strong); }
-.picker-wrap .react-colorful { width: 100%; height: 150px; }
-.picker-wrap .react-colorful__saturation { border-radius: 8px 8px 0 0; }
-.picker-wrap .react-colorful__hue { height: 16px; margin-top: 6px; border-radius: 6px; }
-.picker-wrap .react-colorful__saturation-pointer,
-.picker-wrap .react-colorful__hue-pointer { width: 16px; height: 16px; }
-.fill-row { display: flex; align-items: center; gap: 10px; }
-.hex-input { flex: 1; min-width: 0; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 7px; padding: 7px 10px; }
-.hex-input:focus { outline: none; border-color: var(--accent); }
-.swatch-row { display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px; }
-.mini-swatch { aspect-ratio: 1; border-radius: 5px; border: 1px solid var(--border-strong); cursor: pointer; padding: 0; }
-.mini-swatch:hover { transform: scale(1.12); }
-.gradient-preview { height: 30px; border-radius: 7px; border: 1px solid var(--border-strong); }
+/* ---------- CSS 读数 ---------- */
 .css-readout { font-family: ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.5; color: var(--text-dim); background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; word-break: break-all; }
 
 /* ---------- 每列卡片 ---------- */

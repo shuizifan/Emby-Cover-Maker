@@ -5,8 +5,9 @@
 //  填满才允许导出（导出按钮在工具栏判定）。
 // ============================================================
 import { useRef, useState } from 'react';
-import { useStore } from '../../store/useStore';
-import { filesToImages, fileToImage } from '../../utils/imageLoad';
+import { useShallow } from 'zustand/react/shallow';
+import { selectFillState, useStore } from '../../store/useStore';
+import { filesToPosters, fileToPoster } from '../../utils/imageLoad';
 import { AngleDial } from '../AngleDial';
 import { Collapsible, GroupTitle, SliderNum, Toggle } from '../controls';
 
@@ -32,31 +33,39 @@ export function PostersPanel() {
 
   // 全局索引基址（列主序）
   const bases: number[] = [];
-  let acc = 0;
-  for (let c = 0; c < cols; c++) {
+  for (let c = 0, acc = 0; c < cols; c++) {
     bases.push(acc);
     acc += columns[c]?.count ?? 0;
   }
-  const totalSlots = acc;
-  let filled = 0;
-  for (let c = 0; c < cols; c++) for (const p of postersByCol[c] ?? []) if (p) filled++;
-  const missing = totalSlots - filled;
+  const { total: totalSlots, filled, missing } = useStore(useShallow(selectFillState));
 
   const onBatch = async (files: FileList | null) => {
-    if (!files) return;
-    const imgs = await filesToImages(files);
-    const overflow = uploadBatch(imgs);
-    setNote(overflow > 0 ? `已填入 ${imgs.length - overflow} 张，溢出丢弃 ${overflow} 张（槽位已满）` : `已填入 ${imgs.length} 张`);
+    if (!files || !files.length) return;
+    const list = Array.from(files);
     if (batchRef.current) batchRef.current.value = '';
+    setNote(`正在读取 ${list.length} 个文件…`);
+    const { posters, failed, skipped } = await filesToPosters(list);
+    const overflow = uploadBatch(posters);
+    const parts = [`已填入 ${posters.length - overflow} 张`];
+    if (overflow > 0) parts.push(`溢出丢弃 ${overflow} 张（槽位已满）`);
+    if (failed.length > 0) {
+      const names = failed.slice(0, 3).join('、') + (failed.length > 3 ? ` 等` : '');
+      parts.push(`${failed.length} 张读取失败（${names}）`);
+    }
+    if (skipped > 0) parts.push(`跳过 ${skipped} 个非图片文件`);
+    setNote(parts.join('，'));
   };
 
   const onSingle = async (file: File | undefined) => {
-    if (file && singleTarget.current >= 0) {
-      const img = await fileToImage(file);
-      uploadToSlot(singleTarget.current, img);
-    }
-    if (singleRef.current) singleRef.current.value = '';
+    const target = singleTarget.current;
     singleTarget.current = -1;
+    if (singleRef.current) singleRef.current.value = '';
+    if (!file || target < 0) return;
+    try {
+      uploadToSlot(target, await fileToPoster(file));
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const openSinglePicker = (globalIndex: number) => {
@@ -143,13 +152,13 @@ export function PostersPanel() {
               <div className="poster-slot-grid">
                 {Array.from({ length: count }).map((__, i) => {
                   const globalIndex = bases[c] + i;
-                  const img = arr[i] as HTMLImageElement | null;
+                  const poster = arr[i];
                   return (
                     <PosterSlot
                       key={i}
                       globalIndex={globalIndex}
                       number={globalIndex + 1}
-                      src={img?.src ?? null}
+                      src={poster?.thumbUrl ?? null}
                       onOpen={() => openSinglePicker(globalIndex)}
                       onDelete={() => removePoster(globalIndex)}
                       onSwap={(from) => swapPosters(from, globalIndex)}

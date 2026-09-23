@@ -1,7 +1,8 @@
 // ============================================================
 //  默认参数（V1，打开即可用）
 // ============================================================
-import type { Column, DecoConfig, FillValue, PosterShadowConfig, TitleConfig } from './types';
+import type { BgPickerState, Column, DecoConfig, FillValue, PosterShadowConfig, TitleConfig } from './types';
+import { fillFor } from './utils/bgPicker';
 
 export function makeDefaultColumns(): Column[] {
   return [
@@ -15,9 +16,25 @@ export function makeDefaultColumn(index: number): Column {
   return { count: 5, gap: 6, direction: index % 2 === 0 ? -1 : 1, speed: 1 };
 }
 
-/** 默认背景填充：单色相 / 海洋蓝 / 标准调子 / 线性向右 */
+/** 默认背景面板状态：单色相 / 海洋蓝 / 标准调子 / 明暗层次 43 / 线性向右 */
+export function makeDefaultBgPicker(): BgPickerState {
+  return {
+    mode: 'single',
+    hue1: 217,
+    hue2: 217,
+    mood: 'standard',
+    lightnessSpan: 43,
+    gradType: 'linear',
+    angle: 90,
+    customStart: '',
+    customEnd: '',
+    smartCorrection: true,
+  };
+}
+
+/** 默认背景填充：由默认面板状态按公式生成（#253d65 → #7ba5ea），保证面板与画布一致 */
 export function defaultBgFill(): FillValue {
-  return { mode: 'gradient', gradType: 'linear', c1: '#253c64', c2: '#78a3eb', angle: 90, endPos: 100 };
+  return fillFor(makeDefaultBgPicker());
 }
 
 /** 默认文字填充：纯白 */
@@ -105,6 +122,7 @@ export const DEFAULTS = {
   dither: 'FloydSteinberg' as const,
   quality: 8,
   exportScale: 2 as const,
+  globalPalette: false,
   activeTab: 'background' as const,
   showPivot: false,
 };

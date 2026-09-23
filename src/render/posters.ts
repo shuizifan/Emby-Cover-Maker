@@ -6,8 +6,6 @@ import { PLACEHOLDER_COLORS } from '../themes';
 import { ctxScale, drawImageCover, imgReady, roundRect, type Ctx } from './drawUtils';
 import { calcLayout, stripHeight } from './layout';
 
-/** 旋转后画布四角会露背景，循环带垂直方向上下各延伸的份数（手册 §10.10） */
-const STRIP_COPIES = 3;
 const EDGE_INSET = 0.5;
 
 function drawPosterShadow(ctx: Ctx, s: RenderState, x: number, y: number, w: number, h: number, radius: number): void {
@@ -89,26 +87,40 @@ function drawPosterBody(
   ctx.restore();
 }
 
-/** 画单张海报（含投影、圆角裁切、cover 填充；空槽位画占位渐变） */
-export function drawPosterAt(
-  ctx: Ctx,
-  s: RenderState,
-  posterIdx: number,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-): void {
-  drawPosterShadow(ctx, s, x, y, w, h, s.posterRadius);
-  drawPosterBody(ctx, s, posterIdx, x, y, w, h);
-}
-
 interface PosterPlacement {
   posterIdx: number;
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+/**
+ * 画布在海报层逻辑坐标（旋转前）下覆盖的 y 区间。
+ * 把画布四角绕轴心逆旋转回逻辑坐标，取 y 的最小 / 最大值；
+ * 再按投影可能伸出的距离外扩，避免视口外海报的影子被剔掉。
+ */
+export function visibleYRange(s: RenderState): { yMin: number; yMax: number } {
+  const W = s.width;
+  const H = s.height;
+  const px = (W * s.pivotXPct) / 100;
+  const py = (H * s.pivotYPct) / 100;
+  const a = (s.tiltDeg * Math.PI) / 180;
+  const sin = Math.sin(a);
+  const cos = Math.cos(a);
+  let yMin = Infinity;
+  let yMax = -Infinity;
+  for (const [cx, cy] of [[0, 0], [W, 0], [0, H], [W, H]]) {
+    const ly = py - (cx - px) * sin + (cy - py) * cos;
+    yMin = Math.min(yMin, ly);
+    yMax = Math.max(yMax, ly);
+  }
+  const sh = s.posterShadow;
+  const shadowReach = sh && sh.enabled && sh.opacity > 0
+    ? Math.max(0, sh.distance) + 1.5 * (Math.max(0, sh.blur) + Math.max(0, sh.spread))
+    : 0;
+  const margin = 2 + shadowReach;
+  return { yMin: yMin - margin, yMax: yMax + margin };
 }
 
 /**
@@ -119,9 +131,11 @@ interface PosterPlacement {
  *   y_offset(t) = direction × speed × t × L
  * 多列共同周期（手册 §3.3）：所有列用同一个 t，海报多的列滚得快，
  *   t 走完一圈时各列都回到起点（speed=1 时无缝）。
+ * 边缘覆盖（手册 §3.1 / §10.8）：循环带复制的份数按可见 y 区间动态计算，
+ *   任意画布尺寸 / 倾角 / 轴心下都铺满，视口外的海报整张跳过。
  */
 export function drawPosterLayer(ctx: Ctx, s: RenderState, t: number): void {
-  const H = s.height;
+  const { yMin, yMax } = visibleYRange(s);
   const layout = calcLayout(s);
   const { posterH, posterW, colStartXs } = layout;
   const placements: PosterPlacement[] = [];
@@ -134,14 +148,20 @@ export function drawPosterLayer(ctx: Ctx, s: RenderState, t: number): void {
     const L = stripHeight(N, gap, posterH);
     const offset = c.direction * c.speed * t * L;
     const colX = colStartXs[col];
+    if (!(L > 0)) {
+      posterIdxBase += N;
+      continue;
+    }
 
-    // 垂直方向上下各复制若干份循环带，保证旋转后边缘也覆盖到
-    for (let copy = -STRIP_COPIES; copy <= STRIP_COPIES; copy++) {
+    // 第 copy 份循环带起点 = offset + copy × L；只复制与可见区间相交的那几份
+    const firstCopy = Math.floor((yMin - offset) / L) - 1;
+    const lastCopy = Math.floor((yMax - offset) / L);
+    for (let copy = firstCopy; copy <= lastCopy; copy++) {
       for (let i = 0; i < N; i++) {
         const globalIdx = posterIdxBase + i;
         const y = offset + copy * L + i * (posterH + gap);
         // 视口外的整张海报跳过，省绘制
-        if (y > H + posterH * 1.5 || y + posterH < -posterH * 1.5) continue;
+        if (y > yMax || y + posterH < yMin) continue;
         placements.push({ posterIdx: globalIdx, x: colX, y, w: posterW, h: posterH });
       }
     }

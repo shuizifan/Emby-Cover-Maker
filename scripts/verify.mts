@@ -18,11 +18,14 @@ import {
   makeDefaultEN,
   makeDefaultPosterShadow,
 } from '../src/defaults';
-import type { DrawableImage, RenderState, RenderTitle, TitleConfig } from '../src/types';
+import type { Direction, DrawableImage, RenderState, RenderTitle, TitleConfig } from '../src/types';
 import { calcLayout, stripHeight } from '../src/render/layout';
 import { render } from '../src/render/renderFrame';
 import { fillToCss } from '../src/render/fill';
-import { frameCount, frameTime } from '../src/export/frameMath';
+import { FPS_OPTIONS, frameCount, frameTime, gifFrameDelayMs } from '../src/export/frameMath';
+import { sanitizeLook, sanitizePersisted } from '../src/store/sanitize';
+import { fillFor, reconcilePicker } from '../src/utils/bgPicker';
+import { makeDefaultBgPicker } from '../src/defaults';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', '_verify_out');
@@ -150,7 +153,96 @@ console.log('\n[6] 像素级无缝：render(t=0) 与 render(t=1) 完全一致');
   check('t=0 与 t=1 像素逐字节相同', diff === 0, `不同字节数=${diff}`);
 }
 
-console.log('\n[7] 真实渲染帧导出 PNG（默认 + 渐变文字 + 换行 + 横线装饰）');
+console.log('\n[7] 旋转后海报列不露底（大画布 / 大倾角 / 小海报）');
+{
+  // 纯品红背景 + 列内间距 0：列中心线上只要出现品红，就是循环带没铺满或被错误剔除
+  const MAGENTA = { mode: 'solid', gradType: 'linear', c1: '#ff00ff', c2: '#ff00ff', angle: 0, endPos: 100 } as const;
+  const cases: [string, Partial<RenderState>][] = [
+    ['640×360 · 倾斜 30° · 每列 1 张', { width: 640, height: 360, tiltDeg: 30, cols: 3 }],
+    ['640×90 · 倾斜 30° · 海报宽 20 · 每列 1 张', { width: 640, height: 90, tiltDeg: 30, cols: 6, posterWidth: 20 }],
+    ['640×360 · 倾斜 30° · 轴心左上角', { width: 640, height: 360, tiltDeg: 30, cols: 3, pivotXPct: 0, pivotYPct: 0 }],
+  ];
+  for (const [name, over] of cases) {
+    const cols = over.cols ?? 3;
+    const s: RenderState = {
+      ...defaultState(),
+      ...over,
+      posterRadius: 0,
+      showText: false,
+      bgFill: { ...MAGENTA },
+      columns: Array.from({ length: cols }, (_, i) => ({ count: 1, gap: 0, direction: (i % 2 ? 1 : -1) as Direction, speed: 1 })),
+      posters: new Array(cols).fill(null),
+    };
+    const layout = calcLayout(s);
+    const px0 = (s.width * s.pivotXPct) / 100;
+    const py0 = (s.height * s.pivotYPct) / 100;
+    const a = (s.tiltDeg * Math.PI) / 180;
+    let bad = 0;
+    let total = 0;
+    for (const t of [0, 0.37, 0.71]) {
+      const raw = renderToRaw(s, t);
+      for (let c = 0; c < s.cols; c++) {
+        const lx = layout.colStartXs[c] + layout.posterW / 2;
+        for (let ly = -2000; ly <= 2000; ly += 2) {
+          const dx = lx - px0;
+          const dy = ly - py0;
+          const x = px0 + dx * Math.cos(a) - dy * Math.sin(a);
+          const y = py0 + dx * Math.sin(a) + dy * Math.cos(a);
+          if (x < 1 || y < 1 || x > s.width - 1 || y > s.height - 1) continue;
+          const i = (Math.floor(y) * s.width + Math.floor(x)) * 4;
+          total++;
+          if (raw[i] === 255 && raw[i + 1] === 0 && raw[i + 2] === 255) bad++;
+        }
+      }
+    }
+    check(name, total > 0 && bad === 0, `露底采样点 ${bad} / ${total}`);
+  }
+}
+
+console.log('\n[8] GIF 帧间隔精确还原时长（GIF 延时精度 10ms）');
+{
+  for (const fps of FPS_OPTIONS) {
+    const n = frameCount(DEFAULTS.duration, fps);
+    const total = n * gifFrameDelayMs(fps);
+    check(`${fps}fps：${n} 帧 × ${gifFrameDelayMs(fps)}ms = ${DEFAULTS.duration}s`, total === DEFAULTS.duration * 1000, `${total}ms`);
+  }
+}
+
+console.log('\n[9] 外部数据校验（坏的持久化数据 / 外观文件不抛错）');
+{
+  let threw = '';
+  try {
+    const bad = sanitizePersisted({
+      cols: 'x',
+      columns: [{ count: 1e9 }, { count: -3, speed: 'fast' }, null],
+      width: NaN,
+      fps: 30,
+      bgFill: { mode: 'gradient', c1: 12 },
+      cn: { size: 'huge', text: 42 },
+    });
+    check('非法列数 / 海报数被收敛', bad.cols === DEFAULTS.cols && bad.columns.every((c) => c.count >= 1 && c.count <= 20));
+    check('旧帧率 30 吸附到 25', bad.fps === 25, `fps=${bad.fps}`);
+    check('填充缺字段用默认补齐', /^#[0-9a-f]{6}$/.test(bad.bgFill.c1) && /^#[0-9a-f]{6}$/.test(bad.bgFill.c2));
+    const s = defaultState();
+    renderToRaw({ ...s, cols: bad.cols, columns: bad.columns, cn: { ...s.cn, size: bad.cn.size, text: bad.cn.text } }, 0.3);
+    const look = sanitizeLook({ bgFill: { mode: 'gradient', c1: '#123456' } });
+    renderToRaw({ ...s, bgFill: look.bgFill! }, 0.3);
+  } catch (err) {
+    threw = err instanceof Error ? err.message : String(err);
+  }
+  check('坏数据渲染不抛错', threw === '', threw);
+
+  const picker = makeDefaultBgPicker();
+  check('默认背景 = 默认面板公式', JSON.stringify(fillFor(picker)) === JSON.stringify(defaultState().bgFill));
+  const legacy = { mode: 'gradient', gradType: 'linear', c1: '#253c64', c2: '#78a3eb', angle: 90, endPos: 100 } as const;
+  const r1 = reconcilePicker(picker, legacy, false);
+  check('旧版默认配色仍识别为公式状态', r1.customStart === '' && r1.mode === 'single');
+  const custom = { ...legacy, c1: '#ff0000', c2: '#00ff00' };
+  const r2 = reconcilePicker(picker, custom, false);
+  check('无法复现的配色落到完全自定义，面板与画布一致', JSON.stringify(fillFor(r2)) === JSON.stringify(custom));
+}
+
+console.log('\n[10] 真实渲染帧导出 PNG（默认 + 渐变文字 + 换行 + 横线装饰）');
 {
   const base = defaultState();
   const gradText: RenderState = {

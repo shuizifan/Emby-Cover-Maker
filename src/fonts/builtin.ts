@@ -3,6 +3,7 @@
 //  每个字体文件通过 Vite 资源导入拿到打包后 URL，再用 FontFace API
 //  以一个干净的 font-family 名注册到 document.fonts，渲染时直接用该名。
 //  这样字体名完全由我们掌控，不依赖字体文件内部那串杂乱的家族名。
+//  注册时不下载，用到哪款才加载哪款（见 fonts/loadFonts.ts）。
 // ============================================================
 import type { FontOption } from '../types';
 
@@ -47,29 +48,25 @@ export const BUILTIN_FONTS: FontOption[] = DEFS.map((d) => ({
   source: 'bundled',
 }));
 
-let injected = false;
+let registered = false;
 
-/** 在浏览器里把内置字体注册进 document.fonts（main.tsx 调用一次） */
-export function ensureBuiltinFonts(): Promise<void> {
-  if (injected || typeof document === 'undefined' || !('fonts' in document)) {
-    return Promise.resolve();
-  }
-  injected = true;
-  const loads = DEFS.map((d) => {
+/**
+ * 把内置字体登记进 document.fonts（main.tsx 调用一次，同步、不下载）。
+ * 字体文件共约 12 MB，只在标题真正用到时由 fonts/loadFonts 按需加载。
+ */
+export function registerBuiltinFonts(): void {
+  if (registered || typeof document === 'undefined' || !('fonts' in document)) return;
+  registered = true;
+  for (const d of DEFS) {
     try {
       const face = new FontFace(d.label, `url("${d.url}")`, {
         weight: '400',
         style: 'normal',
         display: 'swap',
       });
-      (document as Document).fonts.add(face);
-      return face.load().then(
-        () => undefined,
-        () => undefined,
-      );
+      document.fonts.add(face);
     } catch {
-      return Promise.resolve();
+      /* 单个字体登记失败不影响其它字体 */
     }
-  });
-  return Promise.all(loads).then(() => undefined);
+  }
 }
