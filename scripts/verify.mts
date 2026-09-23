@@ -18,7 +18,7 @@ import {
   makeDefaultEN,
   makeDefaultPosterShadow,
 } from '../src/defaults';
-import type { DrawableImage, RenderState, RenderTitle, TitleConfig } from '../src/types';
+import type { Direction, DrawableImage, RenderState, RenderTitle, TitleConfig } from '../src/types';
 import { calcLayout, stripHeight } from '../src/render/layout';
 import { render } from '../src/render/renderFrame';
 import { fillToCss } from '../src/render/fill';
@@ -150,7 +150,53 @@ console.log('\n[6] 像素级无缝：render(t=0) 与 render(t=1) 完全一致');
   check('t=0 与 t=1 像素逐字节相同', diff === 0, `不同字节数=${diff}`);
 }
 
-console.log('\n[7] 真实渲染帧导出 PNG（默认 + 渐变文字 + 换行 + 横线装饰）');
+console.log('\n[7] 旋转后海报列不露底（大画布 / 大倾角 / 小海报）');
+{
+  // 纯品红背景 + 列内间距 0：列中心线上只要出现品红，就是循环带没铺满或被错误剔除
+  const MAGENTA = { mode: 'solid', gradType: 'linear', c1: '#ff00ff', c2: '#ff00ff', angle: 0, endPos: 100 } as const;
+  const cases: [string, Partial<RenderState>][] = [
+    ['640×360 · 倾斜 30° · 每列 1 张', { width: 640, height: 360, tiltDeg: 30, cols: 3 }],
+    ['640×90 · 倾斜 30° · 海报宽 20 · 每列 1 张', { width: 640, height: 90, tiltDeg: 30, cols: 6, posterWidth: 20 }],
+    ['640×360 · 倾斜 30° · 轴心左上角', { width: 640, height: 360, tiltDeg: 30, cols: 3, pivotXPct: 0, pivotYPct: 0 }],
+  ];
+  for (const [name, over] of cases) {
+    const cols = over.cols ?? 3;
+    const s: RenderState = {
+      ...defaultState(),
+      ...over,
+      posterRadius: 0,
+      showText: false,
+      bgFill: { ...MAGENTA },
+      columns: Array.from({ length: cols }, (_, i) => ({ count: 1, gap: 0, direction: (i % 2 ? 1 : -1) as Direction, speed: 1 })),
+      posters: new Array(cols).fill(null),
+    };
+    const layout = calcLayout(s);
+    const px0 = (s.width * s.pivotXPct) / 100;
+    const py0 = (s.height * s.pivotYPct) / 100;
+    const a = (s.tiltDeg * Math.PI) / 180;
+    let bad = 0;
+    let total = 0;
+    for (const t of [0, 0.37, 0.71]) {
+      const raw = renderToRaw(s, t);
+      for (let c = 0; c < s.cols; c++) {
+        const lx = layout.colStartXs[c] + layout.posterW / 2;
+        for (let ly = -2000; ly <= 2000; ly += 2) {
+          const dx = lx - px0;
+          const dy = ly - py0;
+          const x = px0 + dx * Math.cos(a) - dy * Math.sin(a);
+          const y = py0 + dx * Math.sin(a) + dy * Math.cos(a);
+          if (x < 1 || y < 1 || x > s.width - 1 || y > s.height - 1) continue;
+          const i = (Math.floor(y) * s.width + Math.floor(x)) * 4;
+          total++;
+          if (raw[i] === 255 && raw[i + 1] === 0 && raw[i + 2] === 255) bad++;
+        }
+      }
+    }
+    check(name, total > 0 && bad === 0, `露底采样点 ${bad} / ${total}`);
+  }
+}
+
+console.log('\n[8] 真实渲染帧导出 PNG（默认 + 渐变文字 + 换行 + 横线装饰）');
 {
   const base = defaultState();
   const gradText: RenderState = {
