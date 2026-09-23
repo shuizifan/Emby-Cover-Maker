@@ -148,16 +148,16 @@ npm run scan-fonts   # 扫描 public/fonts 并刷新字体清单
 ├── netlify.toml            Netlify 部署配置（构建 + SPA 重定向）
 ├── render.yaml             Render 部署配置（静态站点）
 ├── 启动运行.bat             Windows 一键启动脚本
-├── .github/workflows/      GitHub Pages 自动部署工作流
-├── scripts/                scan-fonts（扫描字体）/ verify（算法不变量校验）
+├── .github/workflows/      ci（PR 检查）/ deploy（GitHub Pages 自动部署）
+├── scripts/                scan-fonts（扫描字体）/ verify（算法不变量与像素断言）
 ├── public/fonts/           用户自定义字体目录 + 自动生成的 manifest.json
 ├── docs/                   完整核心手册（产品定义与实现规范）
 └── src/
-    ├── store/useStore.ts   参数状态（cn / en / deco 解耦）
+    ├── store/              useStore（参数状态 + 持久化）/ sanitize（存档与外观文件校验）
     ├── render/             纯渲染引擎（layout / background / posters / textOverlay / fill / renderFrame / drawUtils）
     ├── export/             帧导出（t = i/n）+ gif.js Worker（Floyd–Steinberg 抖色）
-    ├── fonts/              builtin（内置）+ registry（统一注册表）+ userFonts + files（字体文件）
-    ├── utils/              color（含同色相推导）/ decoColor / imageLoad
+    ├── fonts/              builtin（内置）+ registry（统一注册表）+ loadFonts（按需加载）+ userFonts + files（字体文件）
+    ├── utils/              color（含同色相推导）/ bgPicker（背景公式）/ decoColor / imageLoad（上传预缩）
     └── components/         预览、工具栏、调色工具、字体下拉、各 Tab 面板
 ```
 
@@ -171,6 +171,8 @@ npm run scan-fonts   # 扫描 public/fonts 并刷新字体清单
 | `npm run typecheck` | 仅运行 TypeScript 类型检查 |
 | `npm run scan-fonts` | 扫描 `public/fonts` 重新生成字体清单 |
 | `npm run verify` | 算法不变量断言 + 渲染真实帧到 `_verify_out/` |
+| `npm run lint` | ESLint 检查（TypeScript + React Hooks 规则） |
+| `npm run check` | typecheck + lint + verify，提交前跑一遍（CI 同样会跑） |
 
 ## 文档
 
@@ -181,6 +183,7 @@ npm run scan-fonts   # 扫描 public/fonts 并刷新字体清单
 - **每列只露出约 1.7 张大海报**是这个主题的视觉灵魂，海报别调太小。
 - 某列「速度倍率」为非整数时会有警告——会导致 GIF 循环点卡顿，建议用整数。
 - 导出页会预估 GIF 体积，方便判断是否适合发到群聊或媒体库。
+- 帧率只提供 10 / 20 / 25 fps：GIF 的帧间隔精度是 1/100 秒，只有能整除 100 的帧率，成片时长才与设定一致。
 - GIF 只有 256 色，色彩丰富的海报出现轻微色带属正常现象，默认已开启抖色尽量保细节。
 
 ## 关于字体版权
