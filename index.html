@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>动态封面海报工具 · 海报斜播</title>
+    <script>
+      // 首屏主题预置：React 挂载前按存档写入 data-theme，浅色用户不再先闪一下深色。
+      // 存档格式见 src/store/useStore.ts（persist 的 { state }，或旧版直接存参数对象）。
+      (function () {
+        try {
+          var raw = JSON.parse(localStorage.getItem('dynamic-cover-tool:v1') || 'null');
+          var theme = raw && (raw.state || raw).uiTheme;
+          if (theme === 'system') theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+        } catch (e) {
+          /* 无存档或存储不可用：保持默认深色 */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

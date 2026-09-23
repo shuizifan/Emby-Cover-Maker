@@ -52,6 +52,12 @@ if (existsSync(fontsDir)) {
   }
 }
 
+// 按文件夹 / 文件名排序，保证输出与 readdir 顺序无关；不写时间戳、内容不变不落盘，
+// 避免每次 dev / build 都把仓库弄脏
+fonts.sort((a, b) => a.label.localeCompare(b.label));
+for (const f of fonts) f.faces.sort((a, b) => a.url.localeCompare(b.url));
 const out = join(fontsDir, 'manifest.json');
-writeFileSync(out, JSON.stringify({ generatedAt: new Date().toISOString(), fonts }, null, 2));
-console.log(`[scan-fonts] 收录 ${fonts.length} 款用户字体 → public/fonts/manifest.json`);
+const next = JSON.stringify({ fonts }, null, 2) + '\n';
+const prev = existsSync(out) ? readFileSync(out, 'utf8') : '';
+if (prev !== next) writeFileSync(out, next);
+console.log(`[scan-fonts] 收录 ${fonts.length} 款用户字体 → public/fonts/manifest.json${prev === next ? '（无变化）' : ''}`);

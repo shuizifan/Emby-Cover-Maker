@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "scan-fonts": "tsx scripts/scan-fonts.mts",
-    "verify": "tsx scripts/verify.mts"
+    "verify": "tsx scripts/verify.mts",
+    "lint": "eslint . --max-warnings 0",
+    "check": "npm run typecheck && npm run lint && npm run verify"
   },
   "dependencies": {
     "gif.js": "^0.2.0",
@@ -20,14 +22,19 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@napi-rs/canvas": "^0.1.65",
     "@types/gif.js": "^0.2.5",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.70.1",
     "vite": "^5.4.11"
   }
 }
