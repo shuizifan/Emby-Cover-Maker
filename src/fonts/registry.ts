@@ -12,9 +12,24 @@ const FALLBACK = '"PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, san
 
 /** 用户字体（运行时从 public/fonts/manifest.json 注入） */
 let userFonts: FontOption[] = [];
+/** 字体清单版本：用户字体晚于首屏到达时，下拉据此刷新 */
+let version = 0;
+const listeners = new Set<() => void>();
 
 export function setUserFonts(fonts: FontOption[]): void {
   userFonts = fonts;
+  version++;
+  listeners.forEach((l) => l());
+}
+
+/** 订阅字体清单变化（配合 useSyncExternalStore） */
+export function subscribeFonts(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function getFontsVersion(): number {
+  return version;
 }
 
 export function getAllFonts(): FontOption[] {
