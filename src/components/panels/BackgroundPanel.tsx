@@ -7,7 +7,7 @@ import { useStore } from '../../store/useStore';
 import type { BgMood, BgPickerMode, BgPickerState, GradKind } from '../../types';
 import { normalizeHex, hexToRgbObj, rgbObjToHex, rgbToHsl } from '../../utils/color';
 import { MOOD, colorsFor, hslToHex, lightnessPair } from '../../utils/bgPicker';
-import { fileToImage } from '../../utils/imageLoad';
+import { fileToBackground } from '../../utils/imageLoad';
 import { fillToCss } from '../../render/fill';
 import { AngleDial } from '../AngleDial';
 import { ColorPopover } from '../ColorPopover';
@@ -154,7 +154,7 @@ export function BackgroundPanel() {
     if (imgRef.current) imgRef.current.value = '';
     if (!file) return;
     try {
-      setBgImage(await fileToImage(file));
+      setBgImage(await fileToBackground(file));
       patchPicker({ mode: 'image' });
     } catch (err) {
       alert(err instanceof Error ? err.message : '背景图片加载失败');

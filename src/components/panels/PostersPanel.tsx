@@ -6,7 +6,7 @@
 // ============================================================
 import { useRef, useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { filesToImages, fileToImage } from '../../utils/imageLoad';
+import { filesToPosters, fileToPoster } from '../../utils/imageLoad';
 import { AngleDial } from '../AngleDial';
 import { Collapsible, GroupTitle, SliderNum, Toggle } from '../controls';
 
@@ -47,9 +47,9 @@ export function PostersPanel() {
     const list = Array.from(files);
     if (batchRef.current) batchRef.current.value = '';
     setNote(`正在读取 ${list.length} 个文件…`);
-    const { images, failed, skipped } = await filesToImages(list);
-    const overflow = uploadBatch(images);
-    const parts = [`已填入 ${images.length - overflow} 张`];
+    const { posters, failed, skipped } = await filesToPosters(list);
+    const overflow = uploadBatch(posters);
+    const parts = [`已填入 ${posters.length - overflow} 张`];
     if (overflow > 0) parts.push(`溢出丢弃 ${overflow} 张（槽位已满）`);
     if (failed.length > 0) {
       const names = failed.slice(0, 3).join('、') + (failed.length > 3 ? ` 等` : '');
@@ -65,7 +65,7 @@ export function PostersPanel() {
     if (singleRef.current) singleRef.current.value = '';
     if (!file || target < 0) return;
     try {
-      uploadToSlot(target, await fileToImage(file));
+      uploadToSlot(target, await fileToPoster(file));
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
     }
@@ -155,13 +155,13 @@ export function PostersPanel() {
               <div className="poster-slot-grid">
                 {Array.from({ length: count }).map((__, i) => {
                   const globalIndex = bases[c] + i;
-                  const img = arr[i] as HTMLImageElement | null;
+                  const poster = arr[i];
                   return (
                     <PosterSlot
                       key={i}
                       globalIndex={globalIndex}
                       number={globalIndex + 1}
-                      src={img?.src ?? null}
+                      src={poster?.thumbUrl ?? null}
                       onOpen={() => openSinglePicker(globalIndex)}
                       onDelete={() => removePoster(globalIndex)}
                       onSwap={(from) => swapPosters(from, globalIndex)}

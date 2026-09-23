@@ -177,6 +177,14 @@ export interface RenderParams {
 
 export type DrawableImage = CanvasImageSource;
 
+/** 一张已上传的海报：预缩后的绘制源 + 面板槽位用的小缩略图 */
+export interface PosterAsset {
+  image: DrawableImage;
+  /** 缩略图 object URL，移除海报时需 revoke */
+  thumbUrl: string;
+  name: string;
+}
+
 /** 渲染引擎完整输入：参数 + 图片 */
 export interface RenderState extends RenderParams {
   posters: (DrawableImage | null)[];
