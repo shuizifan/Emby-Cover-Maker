@@ -52,8 +52,12 @@ export function PreviewCanvas() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     let raf = 0;
+    let lastError = '';
 
     const loop = (ts: number) => {
+      // 先排下一帧：本帧渲染抛错也不会断掉循环，参数改对后预览自动恢复
+      raf = requestAnimationFrame(loop);
+
       const store = useStore.getState();
       const rs = store.getRenderState();
 
@@ -64,10 +68,17 @@ export function PreviewCanvas() {
       const elapsed = (ts - startRef.current) / 1000;
       const t = (elapsed % rs.duration) / rs.duration;
 
-      render(ctx, rs, t);
+      try {
+        render(ctx, rs, t);
+        lastError = '';
+      } catch (err) {
+        // 抛错时 save/restore 可能没配对；重设宽度会清空上下文状态栈
+        canvas.width = rs.width;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg !== lastError) console.error('[preview] 渲染失败：', err);
+        lastError = msg;
+      }
       if (indicatorRef.current) indicatorRef.current.textContent = `t = ${t.toFixed(3)}`;
-
-      raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);

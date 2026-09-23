@@ -78,7 +78,7 @@ export function hslToRgb({ h, s, l }: { h: number; s: number; l: number }): { r:
 /**
  * 从一个基准色推导"同色相、有对比感"的装饰色：
  * 保持色相不变，提高饱和度、把亮度拉到中高，使其在背景上既不突兀也能看清。
- * 例：背景 #253c64→#78a3eb（蓝），推出来约是一支明亮的蓝青色。
+ * 例：背景 #253d65→#7ba5ea（蓝），推出来约是一支明亮的蓝青色。
  */
 export function deriveAccent(baseHex: string): string {
   const { h, s } = rgbToHsl(hexToRgbObj(baseHex));

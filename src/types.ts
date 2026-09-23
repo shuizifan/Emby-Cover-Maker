@@ -34,6 +34,26 @@ export interface FillValue {
   endPos: number;
 }
 
+/** 背景面板模式：单色相 / 双色相 / 纯色 / 图片 */
+export type BgPickerMode = 'single' | 'dual' | 'solid' | 'image';
+/** 背景调子：控制渐变两端的饱和度组合 */
+export type BgMood = 'soft' | 'standard' | 'rich';
+
+/** 背景面板的公式化取色状态（随参数持久化；非图片模式下 bgFill 由它生成） */
+export interface BgPickerState {
+  mode: BgPickerMode;
+  hue1: number;
+  hue2: number;
+  mood: BgMood;
+  lightnessSpan: number;
+  gradType: GradKind;
+  angle: number;
+  /** 完全自定义的起始 / 结束色；留空按公式生成 */
+  customStart: string;
+  customEnd: string;
+  smartCorrection: boolean;
+}
+
 /** gif.js 抖色模式；'false' 表示关闭 */
 export type DitherMode =
   | 'FloydSteinberg'
@@ -168,6 +188,8 @@ export interface LookPreset {
   version: 1;
   bgImageOn: boolean;
   bgFill: FillValue;
+  /** 背景面板状态；旧版导出的外观文件没有此字段，导入时按 bgFill 反推 */
+  bgPicker?: BgPickerState;
   textFill: FillValue;
   shadowBlur: number;
   posterShadow: PosterShadowConfig;

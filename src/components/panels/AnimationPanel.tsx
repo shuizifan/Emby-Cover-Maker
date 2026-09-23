@@ -4,8 +4,8 @@
 //  轴心可在预览画布上拖动（点「显示轴心」后），也可用此处滑块。
 // ============================================================
 import { useStore } from '../../store/useStore';
-import { GroupTitle, HelpText, Slider } from '../controls';
-import { frameCount } from '../../export/frameMath';
+import { GroupTitle, HelpText, Segmented, Slider } from '../controls';
+import { FPS_OPTIONS, frameCount } from '../../export/frameMath';
 
 export function AnimationPanel() {
   const duration = useStore((s) => s.duration);
@@ -29,7 +29,15 @@ export function AnimationPanel() {
         <>
           <GroupTitle>时间</GroupTitle>
           <Slider label="循环时长" value={duration} min={3} max={25} onChange={(v) => setField('duration', v)} suffix="s" />
-          <Slider label="帧率" value={fps} min={10} max={30} onChange={(v) => setField('fps', v)} suffix="fps" />
+          <div className="field-row">
+            <span className="field-label">帧率</span>
+            <Segmented<`${number}`>
+              value={`${fps}`}
+              onChange={(v) => setField('fps', Number(v))}
+              options={FPS_OPTIONS.map((f) => ({ value: `${f}` as const, label: `${f}fps` }))}
+            />
+          </div>
+          <HelpText>GIF 的帧间隔精度是 1/100 秒，只提供能整除 100 的帧率，成片时长才与设定一致。</HelpText>
           <div className="readonly-row">
             <span>总帧数（只读 = 时长 × 帧率）</span>
             <b>{frames} 帧</b>

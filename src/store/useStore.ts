@@ -5,6 +5,7 @@
 // ============================================================
 import { create } from 'zustand';
 import type {
+  BgPickerState,
   Column,
   DecoConfig,
   DitherMode,
@@ -24,6 +25,7 @@ import {
   DEFAULTS,
   defaultBgFill,
   defaultTextFill,
+  makeDefaultBgPicker,
   makeDefaultCN,
   makeDefaultColumn,
   makeDefaultColumns,
@@ -33,6 +35,9 @@ import {
 } from '../defaults';
 import { fontFamilyOf } from '../fonts/registry';
 import { exportGif } from '../export/exportGif';
+import { ensureTitleFonts } from '../fonts/loadFonts';
+import { fillFor, reconcilePicker } from '../utils/bgPicker';
+import { sanitizeLook, sanitizePersisted, type PersistedData } from './sanitize';
 
 export type ExportStatusKind = 'idle' | 'working' | 'ok' | 'error';
 
@@ -58,12 +63,14 @@ interface ScalarState {
   dither: DitherMode;
   quality: number;
   exportScale: ExportScale;
+  globalPalette: boolean;
   activeTab: TabId;
   showPivot: boolean;
   previewNonce: number;
 }
 
 interface StoreState extends ScalarState {
+  bgPicker: BgPickerState;
   bgFill: FillValue;
   textFill: FillValue;
   posterShadow: PosterShadowConfig;
@@ -81,7 +88,8 @@ interface StoreState extends ScalarState {
   setField: <K extends keyof ScalarState>(key: K, value: ScalarState[K]) => void;
   setCols: (n: number) => void;
   setColumnField: <K extends keyof Column>(col: number, key: K, value: Column[K]) => void;
-  setBgFill: (patch: Partial<FillValue>) => void;
+  /** 背景面板改动：同步写入面板状态、bgImageOn，非图片模式下按公式生成 bgFill */
+  setBgPicker: (next: BgPickerState) => void;
   setTextFill: (patch: Partial<FillValue>) => void;
   setPosterShadow: (patch: Partial<PosterShadowConfig>) => void;
   setTitleField: <K extends keyof TitleConfig>(which: 'cn' | 'en', key: K, value: TitleConfig[K]) => void;
@@ -100,7 +108,8 @@ interface StoreState extends ScalarState {
   runExport: () => Promise<void>;
 
   getLook: () => LookPreset;
-  applyLook: (preset: Partial<LookPreset>) => void;
+  /** 应用导入的外观（任意 JSON，内部校验）；文件无可用字段时抛错 */
+  applyLook: (raw: unknown) => void;
 
   totalSlots: () => number;
   filledCount: () => number;
@@ -108,55 +117,24 @@ interface StoreState extends ScalarState {
   getRenderState: () => RenderState;
 }
 
-type PersistedState = Partial<
-  Pick<
-    StoreState,
-    | 'uiTheme'
-    | 'uiMode'
-    | 'width'
-    | 'height'
-    | 'duration'
-    | 'fps'
-    | 'tiltDeg'
-    | 'pivotXPct'
-    | 'pivotYPct'
-    | 'cols'
-    | 'textAreaWidth'
-    | 'colGap'
-    | 'posterWidth'
-    | 'posterRadius'
-    | 'bgImageOn'
-    | 'showText'
-    | 'shadowBlur'
-    | 'dragTitles'
-    | 'dither'
-    | 'quality'
-    | 'exportScale'
-    | 'activeTab'
-    | 'showPivot'
-    | 'bgFill'
-    | 'textFill'
-    | 'posterShadow'
-    | 'cn'
-    | 'en'
-    | 'deco'
-    | 'columns'
-  >
->;
-
 const STORAGE_KEY = 'dynamic-cover-tool:v1';
 
-function readPersistedState(): PersistedState {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as PersistedState) : {};
-  } catch {
-    return {};
+function readPersistedState(): PersistedData {
+  let raw: unknown = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const text = window.localStorage.getItem(STORAGE_KEY);
+      raw = text ? JSON.parse(text) : null;
+    } catch {
+      raw = null;
+    }
   }
+  const data = sanitizePersisted(raw);
+  // 图片不持久化：刷新后背景总是回到填充模式，面板状态按实际填充对齐
+  return { ...data, bgPicker: reconcilePicker(data.bgPicker, data.bgFill, false) };
 }
 
-function persistedSnapshot(s: StoreState): PersistedState {
+function persistedSnapshot(s: StoreState): PersistedData {
   return {
     uiTheme: s.uiTheme,
     uiMode: s.uiMode,
@@ -172,15 +150,16 @@ function persistedSnapshot(s: StoreState): PersistedState {
     colGap: s.colGap,
     posterWidth: s.posterWidth,
     posterRadius: s.posterRadius,
-    bgImageOn: false,
     showText: s.showText,
     shadowBlur: s.shadowBlur,
     dragTitles: s.dragTitles,
     dither: s.dither,
     quality: s.quality,
     exportScale: s.exportScale,
+    globalPalette: s.globalPalette,
     activeTab: s.activeTab,
     showPivot: s.showPivot,
+    bgPicker: s.bgPicker,
     bgFill: s.bgFill,
     textFill: s.textFill,
     posterShadow: s.posterShadow,
@@ -190,6 +169,42 @@ function persistedSnapshot(s: StoreState): PersistedState {
     columns: s.columns,
   };
 }
+
+/** 全部默认参数（恢复默认与首次打开共用） */
+function defaultData(): Omit<PersistedData, 'uiTheme' | 'uiMode' | 'activeTab'> {
+  return {
+    width: DEFAULTS.width,
+    height: DEFAULTS.height,
+    duration: DEFAULTS.duration,
+    fps: DEFAULTS.fps,
+    tiltDeg: DEFAULTS.tiltDeg,
+    pivotXPct: DEFAULTS.pivotXPct,
+    pivotYPct: DEFAULTS.pivotYPct,
+    cols: DEFAULTS.cols,
+    textAreaWidth: DEFAULTS.textAreaWidth,
+    colGap: DEFAULTS.colGap,
+    posterWidth: DEFAULTS.posterWidth,
+    posterRadius: DEFAULTS.posterRadius,
+    showText: DEFAULTS.showText,
+    shadowBlur: DEFAULTS.shadowBlur,
+    dragTitles: DEFAULTS.dragTitles,
+    dither: DEFAULTS.dither,
+    quality: DEFAULTS.quality,
+    exportScale: DEFAULTS.exportScale,
+    globalPalette: DEFAULTS.globalPalette,
+    showPivot: DEFAULTS.showPivot,
+    bgPicker: makeDefaultBgPicker(),
+    bgFill: defaultBgFill(),
+    textFill: defaultTextFill(),
+    posterShadow: makeDefaultPosterShadow(),
+    cn: makeDefaultCN(),
+    en: makeDefaultEN(),
+    deco: makeDefaultDeco(),
+    columns: makeDefaultColumns(),
+  };
+}
+
+const emptySlots = (columns: Column[]) => columns.map((c) => new Array<DrawableImage | null>(c.count).fill(null));
 
 function resizeSlots(arr: (DrawableImage | null)[], len: number): (DrawableImage | null)[] {
   const next = arr.slice(0, len);
@@ -220,48 +235,12 @@ function toRenderTitle(t: TitleConfig): RenderTitle {
 }
 
 const persisted = readPersistedState();
-const initialColumns = (() => {
-  const cols = Math.max(1, Math.min(6, Math.round(persisted.cols ?? DEFAULTS.cols)));
-  const saved = Array.isArray(persisted.columns) ? persisted.columns : [];
-  const next = saved.slice(0, cols).map((c, i) => ({ ...makeDefaultColumn(i), ...c }));
-  while (next.length < cols) next.push(makeDefaultColumn(next.length));
-  return next;
-})();
 
 export const useStore = create<StoreState>((set, get) => ({
-  uiTheme: persisted.uiTheme ?? DEFAULTS.uiTheme,
-  uiMode: persisted.uiMode ?? DEFAULTS.uiMode,
-  width: persisted.width ?? DEFAULTS.width,
-  height: persisted.height ?? DEFAULTS.height,
-  duration: persisted.duration ?? DEFAULTS.duration,
-  fps: persisted.fps ?? DEFAULTS.fps,
-  tiltDeg: persisted.tiltDeg ?? DEFAULTS.tiltDeg,
-  pivotXPct: persisted.pivotXPct ?? DEFAULTS.pivotXPct,
-  pivotYPct: persisted.pivotYPct ?? DEFAULTS.pivotYPct,
-  cols: Math.max(1, Math.min(6, Math.round(persisted.cols ?? DEFAULTS.cols))),
-  textAreaWidth: persisted.textAreaWidth ?? DEFAULTS.textAreaWidth,
-  colGap: persisted.colGap ?? DEFAULTS.colGap,
-  posterWidth: persisted.posterWidth ?? DEFAULTS.posterWidth,
-  posterRadius: persisted.posterRadius ?? DEFAULTS.posterRadius,
-  bgImageOn: persisted.bgImageOn ?? DEFAULTS.bgImageOn,
-  showText: persisted.showText ?? DEFAULTS.showText,
-  shadowBlur: persisted.shadowBlur ?? DEFAULTS.shadowBlur,
-  dragTitles: persisted.dragTitles ?? DEFAULTS.dragTitles,
-  dither: persisted.dither ?? DEFAULTS.dither,
-  quality: persisted.quality ?? DEFAULTS.quality,
-  exportScale: persisted.exportScale ?? DEFAULTS.exportScale,
-  activeTab: persisted.activeTab ?? DEFAULTS.activeTab,
-  showPivot: persisted.showPivot ?? DEFAULTS.showPivot,
+  ...persisted,
+  bgImageOn: false,
   previewNonce: 0,
-
-  bgFill: persisted.bgFill ?? defaultBgFill(),
-  textFill: persisted.textFill ?? defaultTextFill(),
-  posterShadow: persisted.posterShadow ? { ...makeDefaultPosterShadow(), ...persisted.posterShadow } : makeDefaultPosterShadow(),
-  cn: persisted.cn ? { ...makeDefaultCN(), ...persisted.cn } : makeDefaultCN(),
-  en: persisted.en ? { ...makeDefaultEN(), ...persisted.en } : makeDefaultEN(),
-  deco: persisted.deco ? { ...makeDefaultDeco(), ...persisted.deco } : makeDefaultDeco(),
-  columns: initialColumns,
-  postersByCol: initialColumns.map((c) => new Array<DrawableImage | null>(c.count).fill(null)),
+  postersByCol: emptySlots(persisted.columns),
   bgImage: null,
 
   exportBusy: false,
@@ -297,7 +276,8 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ columns: cols, postersByCol: posters });
   },
 
-  setBgFill: (patch) => set((st) => ({ bgFill: { ...st.bgFill, ...patch } })),
+  setBgPicker: (next) =>
+    set(next.mode === 'image' ? { bgPicker: next, bgImageOn: true } : { bgPicker: next, bgImageOn: false, bgFill: fillFor(next) }),
   setTextFill: (patch) => set((st) => ({ textFill: { ...st.textFill, ...patch } })),
   setPosterShadow: (patch) => set((st) => ({ posterShadow: { ...st.posterShadow, ...patch } })),
   setTitleField: (which, key, value) =>
@@ -389,10 +369,16 @@ export const useStore = create<StoreState>((set, get) => ({
     if (s.exportBusy || !s.isComplete()) return;
     set({ exportBusy: true, exportStatusKind: 'working', exportStatus: '准备导出…' });
     try {
-      const res = await exportGif(s.getRenderState(), {
+      const rs = s.getRenderState();
+      if (rs.showText) {
+        set({ exportStatus: '等待字体加载…' });
+        await ensureTitleFonts([rs.cn, rs.en]);
+      }
+      const res = await exportGif(rs, {
         dither: s.dither,
         quality: s.quality,
         exportScale: s.exportScale,
+        globalPalette: s.globalPalette,
         onPhase: (p) => set({ exportStatus: p.message, exportStatusKind: 'working' }),
       });
       set({
@@ -409,40 +395,10 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  // 恢复默认：清空所有改过的样式与图片（保留 UI 主题与当前标签页）
+  // 恢复默认：清空所有改过的样式与图片（保留 UI 主题、繁简模式与当前标签页）
   resetAll: () => {
-    const cols = makeDefaultColumns();
-    set({
-      width: DEFAULTS.width,
-      height: DEFAULTS.height,
-      duration: DEFAULTS.duration,
-      fps: DEFAULTS.fps,
-      tiltDeg: DEFAULTS.tiltDeg,
-      pivotXPct: DEFAULTS.pivotXPct,
-      pivotYPct: DEFAULTS.pivotYPct,
-      cols: DEFAULTS.cols,
-      textAreaWidth: DEFAULTS.textAreaWidth,
-      colGap: DEFAULTS.colGap,
-      posterWidth: DEFAULTS.posterWidth,
-      posterRadius: DEFAULTS.posterRadius,
-      bgImageOn: DEFAULTS.bgImageOn,
-      showText: DEFAULTS.showText,
-      shadowBlur: DEFAULTS.shadowBlur,
-      dragTitles: DEFAULTS.dragTitles,
-      dither: DEFAULTS.dither,
-      quality: DEFAULTS.quality,
-      exportScale: DEFAULTS.exportScale,
-      showPivot: DEFAULTS.showPivot,
-      bgFill: defaultBgFill(),
-      textFill: defaultTextFill(),
-      posterShadow: makeDefaultPosterShadow(),
-      cn: makeDefaultCN(),
-      en: makeDefaultEN(),
-      deco: makeDefaultDeco(),
-      columns: cols,
-      postersByCol: cols.map((c) => new Array<DrawableImage | null>(c.count).fill(null)),
-      bgImage: null,
-    });
+    const data = defaultData();
+    set({ ...data, bgImageOn: false, postersByCol: emptySlots(data.columns), bgImage: null });
     get().restartPreview();
   },
 
@@ -452,6 +408,7 @@ export const useStore = create<StoreState>((set, get) => ({
       version: 1,
       bgImageOn: s.bgImageOn,
       bgFill: s.bgFill,
+      bgPicker: s.bgPicker,
       textFill: s.textFill,
       shadowBlur: s.shadowBlur,
       posterShadow: s.posterShadow,
@@ -461,17 +418,17 @@ export const useStore = create<StoreState>((set, get) => ({
     };
   },
 
-  applyLook: (p) => {
-    const patch: Partial<StoreState> = {};
-    if (p.bgImageOn !== undefined) patch.bgImageOn = p.bgImageOn;
-    if (p.bgFill) patch.bgFill = p.bgFill;
-    if (p.textFill) patch.textFill = p.textFill;
-    if (p.shadowBlur !== undefined) patch.shadowBlur = p.shadowBlur;
-    if (p.posterShadow) patch.posterShadow = { ...makeDefaultPosterShadow(), ...p.posterShadow };
-    if (p.cn) patch.cn = { ...makeDefaultCN(), ...p.cn };
-    if (p.en) patch.en = { ...makeDefaultEN(), ...p.en };
-    if (p.deco) patch.deco = { ...makeDefaultDeco(), ...p.deco };
-    set(patch);
+  applyLook: (raw) => {
+    const p = sanitizeLook(raw);
+    const s = get();
+    const bgImageOn = p.bgImageOn ?? s.bgImageOn;
+    const bgFill = p.bgFill ?? s.bgFill;
+    set({
+      ...p,
+      bgImageOn,
+      bgFill,
+      bgPicker: reconcilePicker(p.bgPicker ?? s.bgPicker, bgFill, bgImageOn),
+    });
   },
 
   totalSlots: () => {
