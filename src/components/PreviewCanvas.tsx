@@ -1,11 +1,13 @@
 // ============================================================
 //  预览画布：requestAnimationFrame 循环按 t 渲染，整数倍放大显示，
 //  帧指示器 t=，轴心可视化标记可拖动，标题可拖动（手动开启）。
+//  t 量化到导出帧格（t = i/n），所见即所得；帧号与参数都没变时不重画。
 // ============================================================
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { render } from '../render/renderFrame';
-import { lastTitleBoxes, type TitleBox } from '../render/textOverlay';
+import { lastTitleBoxes, notifyFontsChanged, type TitleBox } from '../render/textOverlay';
+import { frameCount, frameTime } from '../export/frameMath';
 
 export function PreviewCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -53,20 +55,38 @@ export function PreviewCanvas() {
     if (!ctx) return;
     let raf = 0;
     let lastError = '';
+    let lastState: unknown = null;
+    let lastFrame = -1;
+    let dirty = true;
+
+    // 字体加载完成：排版缓存失效并重画（字体按需加载，首帧可能还是回退字体）
+    const onFontsLoaded = () => {
+      notifyFontsChanged();
+      dirty = true;
+    };
+    document.fonts?.addEventListener('loadingdone', onFontsLoaded);
 
     const loop = (ts: number) => {
       // 先排下一帧：本帧渲染抛错也不会断掉循环，参数改对后预览自动恢复
       raf = requestAnimationFrame(loop);
 
       const store = useStore.getState();
-      const rs = store.getRenderState();
-
-      if (canvas.width !== rs.width) canvas.width = rs.width;
-      if (canvas.height !== rs.height) canvas.height = rs.height;
+      // 导出期间暂停预览，把主线程让给逐帧渲染
+      if (store.exportBusy) return;
 
       if (startRef.current == null) startRef.current = ts;
       const elapsed = (ts - startRef.current) / 1000;
-      const t = (elapsed % rs.duration) / rs.duration;
+      const n = Math.max(1, frameCount(store.duration, store.fps));
+      const frame = Math.min(n - 1, Math.floor(((elapsed % store.duration) / store.duration) * n));
+      if (!dirty && frame === lastFrame && store === lastState) return;
+      dirty = false;
+      lastFrame = frame;
+      lastState = store;
+
+      const rs = store.getRenderState();
+      if (canvas.width !== rs.width) canvas.width = rs.width;
+      if (canvas.height !== rs.height) canvas.height = rs.height;
+      const t = frameTime(frame, n);
 
       try {
         render(ctx, rs, t);
@@ -81,7 +101,10 @@ export function PreviewCanvas() {
       if (indicatorRef.current) indicatorRef.current.textContent = `t = ${t.toFixed(3)}`;
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.fonts?.removeEventListener('loadingdone', onFontsLoaded);
+    };
   }, []);
 
   // ---- 轴心拖拽 ----
@@ -174,13 +197,8 @@ export function PreviewCanvas() {
   return (
     <div className="preview-stage" ref={wrapRef}>
       <div className="canvas-frame" style={{ width: dispW, height: dispH }}>
-        <canvas
-          ref={canvasRef}
-          width={width}
-          height={height}
-          className="preview-canvas"
-          style={{ width: dispW, height: dispH }}
-        />
+        {/* 位图尺寸由渲染循环设置：React 重设 width 属性会清空画布，而循环在帧号不变时不重画 */}
+        <canvas ref={canvasRef} className="preview-canvas" style={{ width: dispW, height: dispH }} />
         <div className="frame-indicator" ref={indicatorRef}>
           t = 0.000
         </div>
