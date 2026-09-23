@@ -116,10 +116,26 @@ interface StoreState extends ScalarState {
   /** 应用导入的外观（任意 JSON，内部校验）；文件无可用字段时抛错 */
   applyLook: (raw: unknown) => void;
 
-  totalSlots: () => number;
-  filledCount: () => number;
-  isComplete: () => boolean;
   getRenderState: () => RenderState;
+}
+
+export interface FillState {
+  total: number;
+  filled: number;
+  missing: number;
+  /** 所有槽位填满才允许导出（手册 §7） */
+  complete: boolean;
+}
+
+/** 槽位填充统计：工具栏 / 导出面板 / 海报面板共用（对象结果配合 useShallow 订阅） */
+export function selectFillState(s: Pick<StoreState, 'cols' | 'columns' | 'postersByCol'>): FillState {
+  let total = 0;
+  let filled = 0;
+  for (let c = 0; c < s.cols; c++) {
+    total += s.columns[c]?.count ?? 0;
+    for (const p of s.postersByCol[c] ?? []) if (p) filled++;
+  }
+  return { total, filled, missing: total - filled, complete: total > 0 && filled === total };
 }
 
 const STORAGE_KEY = 'dynamic-cover-tool:v1';
@@ -439,7 +455,7 @@ export const useStore = create<StoreState>()(
 
       runExport: async () => {
         const s = get();
-        if (s.exportBusy || !s.isComplete()) return;
+        if (s.exportBusy || !selectFillState(s).complete) return;
         set({ exportBusy: true, exportStatusKind: 'working', exportStatus: '准备导出…' });
         try {
           const rs = s.getRenderState();
@@ -504,23 +520,6 @@ export const useStore = create<StoreState>()(
           bgFill,
           bgPicker: reconcilePicker(p.bgPicker ?? s.bgPicker, bgFill, bgImageOn),
         });
-      },
-
-      totalSlots: () => {
-        const { columns, cols } = get();
-        return totalSlotsOf(columns, cols);
-      },
-
-      filledCount: () => {
-        const { postersByCol, cols } = get();
-        let n = 0;
-        for (let c = 0; c < cols; c++) for (const p of postersByCol[c] ?? []) if (p) n++;
-        return n;
-      },
-
-      isComplete: () => {
-        const s = get();
-        return s.totalSlots() > 0 && s.filledCount() === s.totalSlots();
       },
 
       getRenderState: () => {

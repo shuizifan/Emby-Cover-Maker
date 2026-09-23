@@ -2,7 +2,7 @@
 //  Tab：导出（手册 §6.2 / §9 输出契约）
 //  抖色算法 / 质量 / 导出按钮（状态/进度）。
 // ============================================================
-import { useStore } from '../../store/useStore';
+import { selectFillState, useStore } from '../../store/useStore';
 import type { DitherMode, ExportScale } from '../../types';
 import { frameCount } from '../../export/frameMath';
 import { GroupTitle, HelpText, Segmented, Slider, Toggle } from '../controls';
@@ -35,16 +35,7 @@ export function ExportPanel() {
     24,
     Math.round((width * height * frames * (0.18 + (21 - quality) * 0.018) * (dither === 'false' ? 0.82 : 1)) / 1024),
   );
-  const isComplete = useStore((s) => {
-    let total = 0;
-    let filled = 0;
-    for (let c = 0; c < s.cols; c++) {
-      const arr = s.postersByCol[c] ?? [];
-      total += s.columns[c]?.count ?? 0;
-      for (const p of arr) if (p) filled++;
-    }
-    return total > 0 && filled === total;
-  });
+  const isComplete = useStore((s) => selectFillState(s).complete);
 
   return (
     <div className="panel">

@@ -5,7 +5,8 @@
 //  填满才允许导出（导出按钮在工具栏判定）。
 // ============================================================
 import { useRef, useState } from 'react';
-import { useStore } from '../../store/useStore';
+import { useShallow } from 'zustand/react/shallow';
+import { selectFillState, useStore } from '../../store/useStore';
 import { filesToPosters, fileToPoster } from '../../utils/imageLoad';
 import { AngleDial } from '../AngleDial';
 import { Collapsible, GroupTitle, SliderNum, Toggle } from '../controls';
@@ -32,15 +33,11 @@ export function PostersPanel() {
 
   // 全局索引基址（列主序）
   const bases: number[] = [];
-  let acc = 0;
-  for (let c = 0; c < cols; c++) {
+  for (let c = 0, acc = 0; c < cols; c++) {
     bases.push(acc);
     acc += columns[c]?.count ?? 0;
   }
-  const totalSlots = acc;
-  let filled = 0;
-  for (let c = 0; c < cols; c++) for (const p of postersByCol[c] ?? []) if (p) filled++;
-  const missing = totalSlots - filled;
+  const { total: totalSlots, filled, missing } = useStore(useShallow(selectFillState));
 
   const onBatch = async (files: FileList | null) => {
     if (!files || !files.length) return;

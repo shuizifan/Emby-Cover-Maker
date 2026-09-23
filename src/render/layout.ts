@@ -11,14 +11,12 @@ export interface Layout {
   posterH: number;
   /** 各列横向起点 X */
   colStartXs: number[];
-  /** 总槽位数 = Σ(各列海报数) */
-  totalSlots: number;
 }
 
 /** 列内留白：文字区右侧再留 6px 才开始第一列（与参考实现一致） */
 const LAYOUT_INNER_PAD = 6;
 
-export function calcLayout(p: Pick<RenderParams, 'posterWidth' | 'textAreaWidth' | 'colGap' | 'cols' | 'columns'>): Layout {
+export function calcLayout(p: Pick<RenderParams, 'posterWidth' | 'textAreaWidth' | 'colGap' | 'cols'>): Layout {
   const posterW = p.posterWidth;
   const posterH = posterW * 1.5;
   const layoutStartX = p.textAreaWidth + LAYOUT_INNER_PAD;
@@ -26,9 +24,7 @@ export function calcLayout(p: Pick<RenderParams, 'posterWidth' | 'textAreaWidth'
   for (let i = 0; i < p.cols; i++) {
     colStartXs.push(layoutStartX + i * (posterW + p.colGap));
   }
-  let totalSlots = 0;
-  for (let c = 0; c < p.cols && c < p.columns.length; c++) totalSlots += p.columns[c].count;
-  return { posterW, posterH, colStartXs, totalSlots };
+  return { posterW, posterH, colStartXs };
 }
 
 /**
