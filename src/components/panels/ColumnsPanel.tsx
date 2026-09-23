@@ -13,7 +13,8 @@ export function ColumnsPanel() {
   const columns = useStore((s) => s.columns);
   const setColumnField = useStore((s) => s.setColumnField);
   const pro = useStore((s) => s.uiMode === 'pro');
-  const [fineSpeed, setFineSpeed] = useState(false);
+  // 已有小数速度（刷新恢复 / 导入）时默认展开精细速度，避免整数滑块显示错位
+  const [fineSpeed, setFineSpeed] = useState(() => columns.slice(0, cols).some((c) => !Number.isInteger(c.speed)));
 
   const setFineSpeedMode = (enabled: boolean) => {
     setFineSpeed(enabled);
