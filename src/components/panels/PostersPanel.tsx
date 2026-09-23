@@ -43,20 +43,32 @@ export function PostersPanel() {
   const missing = totalSlots - filled;
 
   const onBatch = async (files: FileList | null) => {
-    if (!files) return;
-    const imgs = await filesToImages(files);
-    const overflow = uploadBatch(imgs);
-    setNote(overflow > 0 ? `已填入 ${imgs.length - overflow} 张，溢出丢弃 ${overflow} 张（槽位已满）` : `已填入 ${imgs.length} 张`);
+    if (!files || !files.length) return;
+    const list = Array.from(files);
     if (batchRef.current) batchRef.current.value = '';
+    setNote(`正在读取 ${list.length} 个文件…`);
+    const { images, failed, skipped } = await filesToImages(list);
+    const overflow = uploadBatch(images);
+    const parts = [`已填入 ${images.length - overflow} 张`];
+    if (overflow > 0) parts.push(`溢出丢弃 ${overflow} 张（槽位已满）`);
+    if (failed.length > 0) {
+      const names = failed.slice(0, 3).join('、') + (failed.length > 3 ? ` 等` : '');
+      parts.push(`${failed.length} 张读取失败（${names}）`);
+    }
+    if (skipped > 0) parts.push(`跳过 ${skipped} 个非图片文件`);
+    setNote(parts.join('，'));
   };
 
   const onSingle = async (file: File | undefined) => {
-    if (file && singleTarget.current >= 0) {
-      const img = await fileToImage(file);
-      uploadToSlot(singleTarget.current, img);
-    }
-    if (singleRef.current) singleRef.current.value = '';
+    const target = singleTarget.current;
     singleTarget.current = -1;
+    if (singleRef.current) singleRef.current.value = '';
+    if (!file || target < 0) return;
+    try {
+      uploadToSlot(target, await fileToImage(file));
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const openSinglePicker = (globalIndex: number) => {
