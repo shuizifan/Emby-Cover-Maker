@@ -1,16 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 错位播放键：15° 斜缝把播放键切成三列，中间一列向下、两侧向上，对应「海报斜播」相邻列反向滚动 -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#253d65"/>
-      <stop offset="1" stop-color="#7ba5ea"/>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff8a4c"/>
+      <stop offset=".5" stop-color="#e8388f"/>
+      <stop offset="1" stop-color="#6d3be6"/>
     </linearGradient>
+    <clipPath id="c1"><rect x="-20" y="-60" width="63" height="220"/></clipPath>
+    <clipPath id="c2"><rect x="46.5" y="-60" width="16.5" height="220"/></clipPath>
+    <clipPath id="c3"><rect x="66.5" y="-60" width="60" height="220"/></clipPath>
   </defs>
-  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
-  <g transform="rotate(15 20 16)" fill="#fff">
-    <rect x="11" y="-2" width="8" height="12" rx="1.5" opacity=".9"/>
-    <rect x="11" y="12" width="8" height="12" rx="1.5" opacity=".9"/>
-    <rect x="21" y="5" width="8" height="12" rx="1.5" opacity=".6"/>
-    <rect x="21" y="19" width="8" height="12" rx="1.5" opacity=".6"/>
+  <rect width="100" height="100" rx="22" fill="#fff"/>
+  <g transform="translate(-1 0)" fill="url(#g)">
+    <g transform="rotate(15 50 50) translate(0 -3)"><g clip-path="url(#c1)"><path transform="rotate(-15 50 50)" d="M31 18 Q24 14 24 22 L24 78 Q24 86 31 82 L81 55 Q88 50 81 45 Z"/></g></g>
+    <g transform="rotate(15 50 50) translate(0 3)"><g clip-path="url(#c2)"><path transform="rotate(-15 50 50)" d="M31 18 Q24 14 24 22 L24 78 Q24 86 31 82 L81 55 Q88 50 81 45 Z"/></g></g>
+    <g transform="rotate(15 50 50) translate(0 -3)"><g clip-path="url(#c3)"><path transform="rotate(-15 50 50)" d="M31 18 Q24 14 24 22 L24 78 Q24 86 31 82 L81 55 Q88 50 81 45 Z"/></g></g>
   </g>
-  <rect x="4" y="12" width="2" height="8" rx="1" fill="#fff"/>
 </svg>

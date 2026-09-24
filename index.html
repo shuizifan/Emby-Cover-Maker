@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- ico 给不支持 SVG 图标的浏览器（Safari）兜底；apple-touch-icon 用于添加到主屏幕 -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>动态封面海报工具 · 海报斜播</title>
     <script>
       // 首屏主题预置：React 挂载前按存档写入 data-theme，浅色用户不再先闪一下深色。

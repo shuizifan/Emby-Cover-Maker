@@ -46,9 +46,13 @@ export default function App() {
     <div className="app">
       <section className="preview-area">
         <header className="app-header">
-          <div>
-            <h1>动态封面海报工具</h1>
-            <p>主题：海报斜播 · 输出 GIF</p>
+          <div className="app-brand">
+            {/* 与标签页图标同一个文件；BASE_URL 为相对路径，子路径部署也能加载 */}
+            <img className="app-logo" src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" width={40} height={40} />
+            <div>
+              <h1>动态封面海报工具</h1>
+              <p>主题：海报斜播 · 输出 GIF</p>
+            </div>
           </div>
           <div className="header-toggles">
             <ModeToggle />
